@@ -1,7 +1,17 @@
 on:
+  workflow_dispatch:
   push:
     branches:
-      - master
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+  release:
+    types:
+      - released
+  schedule:
+    - cron: "0 0 * * *"
+    
 jobs:
   build-windows:
     runs-on: windows-latest
