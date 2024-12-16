@@ -1,7 +1,7 @@
 includes("@builtin/check")
 add_rules("mode.debug", "mode.release")
 
-add_repositories("zeromake https://github.com/zeromake/xrepo.git")
+add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
 
 add_requires(
     "expat",
