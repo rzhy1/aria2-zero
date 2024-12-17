@@ -340,5 +340,7 @@ target("aria2c")
     after_build(function (target)
         os.mkdir("dist")
         local ext = is_plat("windows") and ".exe" or ""
+        local output_file = format("dist/aria2c-%s-%s%s", target:plat(), target:arch(), ext)
+        os.execv("x86_64-w64-mingw32-strip", {output_file})
         os.cp(target:targetfile(), format("dist/aria2c-%s-%s%s", target:plat(), target:arch(), ext))
     end)
