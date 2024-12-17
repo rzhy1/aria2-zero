@@ -28,3 +28,14 @@ jobs:
           name: aria2c-windows-${{ github.run_id }}
           path: |
             dist/*.exe
+      - name: Get Aria2 Version
+        run: |
+          VERSION=$(wget -qO- https://raw.githubusercontent.com/aria2/aria2/master/NEWS | grep -oP 'aria2 \K\d+(\.\d+)*')
+          echo "ARIA2_VERSION=${VERSION}" >> $GITHUB_ENV
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: aria2c-${{ env.ARIA2_VERSION }}
+          allowUpdates: true
+          artifacts: dist/*.exe
+          token: ${{ secrets.GITHUB_TOKEN }}
