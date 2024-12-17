@@ -908,7 +908,7 @@ std::vector<OptionHandler*> OptionHandlerFactory::createOptionHandlers()
   }
   {
     OptionHandler* op(new UnitNumberOptionHandler(
-        PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g));
+        PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g));
     op->addTag(TAG_ADVANCED);
     op->addTag(TAG_FTP);
     op->addTag(TAG_HTTP);
