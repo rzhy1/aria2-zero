@@ -340,5 +340,5 @@ target("aria2c")
     after_build(function (target)
         os.mkdir("dist")
         local ext = is_plat("windows") and ".exe" or ""
-        os.cp(target:targetfile(), format("dist/aria2c0, ext))
+        os.cp(target:targetfile(), "dist/aria2c0.exe")
     end)
