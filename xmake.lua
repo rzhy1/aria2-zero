@@ -155,7 +155,7 @@ else
     set_configvar("ENABLE_PTHREAD", 1)
 end
 local PROJECT_NAME = "aria2-zero"
-local PROJECT_VERSION = "1.36.0"
+local PROJECT_VERSION = "1.37.0"
 local PACKAGE_URL = "https://aria2.github.io"
 local PACKAGE_BUGREPORT = "https://github.com/zeromake/aria2-zero/issues"
 
