@@ -342,15 +342,27 @@ target("aria2c")
         local ext = is_plat("windows") and ".exe" or ""
         os.cp(target:targetfile(), "dist/aria2c0.exe")
     end)
-error: .\xmake.lua:348: attempt to index a nil value (global 'io')
-stack traceback:
-    [.\xmake.lua:348]: in function 'find_visual_studio_path'
-    [.\xmake.lua:362]: in main chunk
+-- 查找 Microsoft Visual Studio 安装路径的函数
+function find_visual_studio_path()
+    -- 使用 io.popen 执行 vswhere 并捕获输出
+    local handle = io.popen("vswhere -latest -products * -requires Microsoft.VisualStudio.Component.CoreEditor -property installationPath")
+    local result = handle:read("*a")  -- 读取所有输出
+    handle:close()
+    
+    -- 如果找到了路径，返回
+    if result and #result > 0 then
+        return result
+    else
+        -- 如果没有找到路径，返回 nil
+        return nil
+    end
+end
 
-checking for platform ... windows
-checking for Microsoft Visual Studio (x64) version ... 2022
-checking for Microsoft C/C++ Compiler (x64) version ... 19.42.34435
-error: .\xmake.lua:348: attempt to index a nil value (global 'io')
-stack traceback:
-    [.\xmake.lua:348]: in function 'find_visual_studio_path'
-    [.\xmake.lua:362]: in main chunk
+-- 示例：查找 Visual Studio 安装路径
+local vs_path = find_visual_studio_path()
+
+if vs_path then
+    print("找到 Visual Studio 安装路径: " .. vs_path)
+else
+    print("未找到 Visual Studio 安装路径，请确认 Visual Studio 已安装并正确配置。")
+end
