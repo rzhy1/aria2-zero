@@ -345,8 +345,9 @@ target("aria2c")
 -- 查找 Microsoft Visual Studio 安装路径的函数
 function find_visual_studio_path()
     -- 调用 vswhere 工具来查找最新的 Visual Studio 安装路径
-    local result = os.run("vswhere -latest -products * -requires Microsoft.VisualStudio.Component.CoreEditor -property installationPath")
+    local result = os.execute("vswhere -latest -products * -requires Microsoft.VisualStudio.Component.CoreEditor -property installationPath")
     
+    -- 判断是否返回有效路径
     if result and #result > 0 then
         -- 返回找到的安装路径
         return result
