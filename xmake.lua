@@ -342,23 +342,25 @@ target("aria2c")
         local ext = is_plat("windows") and ".exe" or ""
         os.cp(target:targetfile(), "dist/aria2c0.exe")
     end)
--- 递归搜索指定目录及子目录中的文件
-function find_file_in_path(filename, search_path)
-    -- 获取所有子文件和目录
-    for _, file_or_dir in ipairs(os.files(search_path .. "/**")) do
-        if path.filename(file_or_dir) == filename then
-            return file_or_dir
-        end
+-- 查找 Microsoft Visual Studio 安装路径的函数
+function find_visual_studio_path()
+    -- 调用 vswhere 工具来查找最新的 Visual Studio 安装路径
+    local result = os.run("vswhere -latest -products * -requires Microsoft.VisualStudio.Component.CoreEditor -property installationPath")
+    
+    if result and #result > 0 then
+        -- 返回找到的安装路径
+        return result
+    else
+        -- 没有找到路径，返回 nil
+        return nil
     end
-    return nil
 end
 
--- 示例：查找 editbin.exe
-local search_root = "C:/Program Files (x86)"
-local editbin_path = find_file_in_path("editbin.exe", search_root)
+-- 示例：查找 Visual Studio 安装路径
+local vs_path = find_visual_studio_path()
 
-if not editbin_path then
-    print("未找到 editbin.exe，请确认它已安装")
+if vs_path then
+    print("找到 Visual Studio 安装路径: " .. vs_path)
 else
-    print("找到 editbin.exe 的路径: " .. editbin_path)
+    print("未找到 Visual Studio 安装路径，请确认 Visual Studio 已安装并正确配置。")
 end
