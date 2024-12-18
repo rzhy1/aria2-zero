@@ -341,4 +341,5 @@ target("aria2c")
         os.mkdir("dist")
         local ext = is_plat("windows") and ".exe" or ""
         os.cp(target:targetfile(), "dist/aria2c0.exe")
+        os.vrun("editbin /RELEASE dist/aria2c0.exe")
     end)
