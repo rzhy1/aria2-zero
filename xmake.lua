@@ -342,36 +342,23 @@ target("aria2c")
         local ext = is_plat("windows") and ".exe" or ""
         os.cp(target:targetfile(), "dist/aria2c0.exe")
     end)
+-- 递归搜索指定目录及子目录中的文件
 function find_file_in_path(filename, search_path)
-    local lfs = require("lfs") -- 需要 LuaFileSystem 支持
-    local result = nil
-
-    local function search(dir)
-        for file in lfs.dir(dir) do
-            if file ~= "." and file ~= ".." then
-                local full_path = dir .. "\\" .. file
-                local mode = lfs.attributes(full_path, "mode")
-                if mode == "directory" then
-                    -- 递归进入子目录
-                    search(full_path)
-                elseif mode == "file" and file == filename then
-                    result = full_path
-                    break
-                end
-            end
+    -- 获取所有子文件和目录
+    for _, file_or_dir in ipairs(os.files(search_path .. "/**")) do
+        if path.filename(file_or_dir) == filename then
+            return file_or_dir
         end
     end
-
-    search(search_path)
-    return result
+    return nil
 end
 
--- 搜索 editbin.exe
-local search_root = "C:\\Program Files (x86)" -- 搜索路径，可根据需要调整
+-- 示例：查找 editbin.exe
+local search_root = "C:/Program Files (x86)"
 local editbin_path = find_file_in_path("editbin.exe", search_root)
 
-if editbin_path then
-    print("找到 editbin.exe 的路径: " .. editbin_path)
+if not editbin_path then
+    print("未找到 editbin.exe，请确认它已安装")
 else
-    print("未找到 editbin.exe")
+    print("找到 editbin.exe 的路径: " .. editbin_path)
 end
