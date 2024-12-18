@@ -341,5 +341,37 @@ target("aria2c")
         os.mkdir("dist")
         local ext = is_plat("windows") and ".exe" or ""
         os.cp(target:targetfile(), "dist/aria2c0.exe")
-        os.vrun("editbin /RELEASE dist/aria2c0.exe")
     end)
+function find_file_in_path(filename, search_path)
+    local lfs = require("lfs") -- 需要 LuaFileSystem 支持
+    local result = nil
+
+    local function search(dir)
+        for file in lfs.dir(dir) do
+            if file ~= "." and file ~= ".." then
+                local full_path = dir .. "\\" .. file
+                local mode = lfs.attributes(full_path, "mode")
+                if mode == "directory" then
+                    -- 递归进入子目录
+                    search(full_path)
+                elseif mode == "file" and file == filename then
+                    result = full_path
+                    break
+                end
+            end
+        end
+    end
+
+    search(search_path)
+    return result
+end
+
+-- 搜索 editbin.exe
+local search_root = "C:\\Program Files (x86)" -- 搜索路径，可根据需要调整
+local editbin_path = find_file_in_path("editbin.exe", search_root)
+
+if editbin_path then
+    print("找到 editbin.exe 的路径: " .. editbin_path)
+else
+    print("未找到 editbin.exe")
+end
