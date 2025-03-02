@@ -1,138 +1,54 @@
 on:
+  workflow_dispatch:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - "*"
+  release:
+    types:
+      - released
+  schedule:
+    - cron: "0 0 * * *"
+    
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - name: git-config
-        run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
-      - uses: actions/checkout@v4
-      - name: xmake
-        uses: xmake-io/github-action-setup-xmake@v1
-        with:
-          xmake-version: latest
-      # - name: Download llvm-mingw
-      #   uses: robinraju/release-downloader@main
-      #   with:
-      #     repository: "mstorsjo/llvm-mingw"
-      #     latest: true
-      #     extract: false
-      #     fileName: "llvm-mingw-*-ucrt-x86_64.zip"
-      # - name: Install llvm-mingw
-      #   run: |
-      #     unzip llvm-mingw-*-ucrt-x86_64.zip | Out-Null && rm llvm-mingw-*-ucrt-x86_64.zip
-      #     mv llvm-mingw-* llvm-mingw
-      # - name: build x64
-      #   env:
-      #     VERSION: ${{ github.ref_name }}
-      #   run: |
-      #     $env:PATH = "$(Get-Location)\llvm-mingw\bin;$env:PATH"
-      #     xmake f -p mingw -a x86_64 -c -y --use_quictls=n && xmake pack aria2
-      - name: build arm64
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: xmake f -a arm64 -c -y && xmake pack aria2
-      - name: build x86
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: xmake f -a x86 -c -y && xmake pack aria2
-      - name: build x64
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: xmake f -a x64 -c -y && xmake pack aria2
-      - name: cp
-        run: New-Item -ItemType Directory -Path dist && cp build/xpack/aria2/*.zip dist/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: aria2c-windows-${{ github.run_id }}
-          path: |
-            dist/*
-  build-linux:
-    runs-on: ubuntu-latest
+  build-aria2c_windows:
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
-      - name: prepare
+      - name: Modify files
+        shell: pwsh
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gettext
+          $filePath1 = "$env:GITHUB_WORKSPACE\src\parser\OptionHandlerFactory.cc"
+          $filePath2 = "$env:GITHUB_WORKSPACE\xmake.lua"
+          (Get-Content -Path $filePath1) -replace '"1", 1, 16, ''x''', '"1", 1, 1024, ''x''' | Set-Content -Path $filePath1
+          (Get-Content -Path $filePath1) -replace 'PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g', 'PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g' | Set-Content -Path $filePath1
+          (Get-Content -Path $filePath2) -replace 'local PROJECT_VERSION = os.getenv\("VERSION"\) or "1.37.0-development"', 'local PROJECT_VERSION = "1.37.0"' | Set-Content -Path $filePath2
       - name: xmake
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
       - name: build x64
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: xmake f -a x86_64 -c -y && xmake pack aria2
-      - name: setup arm-gnu-toolchain
         run: |
-          curl -L -o arm-gnu-toolchain.txz https://developer.arm.com/-/media/Files/downloads/gnu/14.2.rel1/binrel/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
-          tar -xf arm-gnu-toolchain.txz -C build && mv build/arm-gnu-toolchain-* build/arm-gnu-toolchain
-          ls build/arm-gnu-toolchain
-          rm arm-gnu-toolchain.txz
-      - name: build arm64
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: |
-          xmake f -p linux -a arm64 --sdk="$PWD/build/arm-gnu-toolchain" -c --use_quictls=n -y
-          xmake pack aria2
-      - name: cp
-        run: mkdir -p dist && cp build/xpack/aria2/*.zip dist/
+          xmake f -a x64 -c -y && xmake b
+          Get-ChildItem -Recurse -Path build -Filter aria2c.exe | ForEach-Object {
+             $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
+             Move-Item -Path $_.FullName -Destination $newPath -Force
+             Write-Output "Renamed $($_.FullName) to $newPath"
+          }
       - uses: actions/upload-artifact@v4
-        with:
-          name: aria2c-linux-${{ github.run_id }}
-          path: |
-            dist/*
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: xmake
-        run: brew install xmake && xmake --version
-      - name: build x64
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: xmake f -a x86_64 -c -y && xmake pack aria2
-      - name: build arm64
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: xmake f -a arm64 -c -y && xmake pack aria2
-      # - name: build universal
-      #   run: lipo -create -output dist/aria2c-macosx-universal dist/aria2c-macosx-x86_64 dist/aria2c-macosx-arm64
-      - name: cp
-        run: mkdir -p dist && cp build/xpack/aria2/*.zip dist/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: aria2c-macos-${{ github.run_id }}
-          path: |
-            dist/*
-  update-release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    needs: [build-macos, build-windows, build-linux]
-    steps:
-      - uses: actions/download-artifact@v4
         with:
           name: aria2c-windows-${{ github.run_id }}
-          path: dist
-      - uses: actions/download-artifact@v4
+          path: |
+            build\**\aria2c0.exe
+            if-no-files-found: error
+            retention-days: 1
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
         with:
-          name: aria2c-macos-${{ github.run_id }}
-          path: dist
-      - uses: actions/download-artifact@v4
-        with:
-          name: aria2c-linux-${{ github.run_id }}
-          path: dist
-      - name: list file
-        run: |
-          ls -R dist
-      - name: update
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') && github.ref_name != 'v0.0.0'
-        with:
-          files: |
-            dist/*
+          tag: aria2c-1.37.0
+          allowUpdates: true
+          artifacts:  build\**\aria2c0.exe
+          token: ${{ secrets.GITHUB_TOKEN }}
