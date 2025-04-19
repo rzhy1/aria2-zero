@@ -1,5 +1,5 @@
 set_policy("package.install_only", true)
-add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
+add_repositories("zeromake https://github.com/zeromake/xrepo.git")
 local ssl_name = get_config("use_quictls") and "quictls" or "libressl"
 add_requires(
     "expat",
