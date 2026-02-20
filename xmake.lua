@@ -289,14 +289,12 @@ target_end()
 
 rule("mo")
     set_extensions(".po")
-    -- [优化] 在 on_load 阶段查找 msgfmt 并缓存到 target，避免针对每一个 .po 文件反复触发查找工具，大幅提升构建配置速度
-    on_load(function (target)
-        import("lib.detect.find_tool")
-        target:data_set("msgfmt_tool", find_tool("msgfmt"))
-    end)
     on_buildcmd_file(function (target, batchcmds, sourcefile, opt)
-        local msgfmt = target:data("msgfmt_tool")
-        assert(msgfmt, "msgfmt not found!")
+        import("lib.detect.find_tool")
+        
+        -- 在 on_buildcmd_file 阶段（此时依赖包已全部下载并配置完毕），重新去查找 msgfmt
+        -- 并指定包环境 {envs = target:pkgenvs()}，确保必定能通过 gettext-tools 包找到
+        local msgfmt = assert(find_tool("msgfmt", {envs = target:pkgenvs()}), "msgfmt not found!")
         
         local targetdir = path.join(vformat("$(builddir)/locale"), path.basename(sourcefile), "LC_MESSAGES")
         batchcmds:mkdir(targetdir)
