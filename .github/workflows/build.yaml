@@ -14,7 +14,7 @@ on:
     
 jobs:
   build-aria2c_windows:
-    runs-on: windows-2025-vs2026
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v6
       - name: Modify files
