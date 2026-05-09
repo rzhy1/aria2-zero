@@ -15,8 +15,17 @@ on:
 jobs:
   build-aria2c_windows:
     runs-on: windows-2025
+    env:
+      XMAKE_GLOBALDIR: ${{ github.workspace }}\.xmake
     steps:
       - uses: actions/checkout@v6
+      - name: Clear xmake cache
+        shell: cmd
+        run: |
+          if exist "%LOCALAPPDATA%\.xmake" rmdir /s /q "%LOCALAPPDATA%\.xmake"
+          if exist ".xmake" rmdir /s /q ".xmake"
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
       - name: Modify files
         shell: pwsh
         run: |
@@ -31,6 +40,7 @@ jobs:
           xmake-version: latest
       - name: build x64
         run: |
+          xmake g --clean
           xmake f -a x64 -c -y && xmake b
           Get-ChildItem -Recurse -Path build -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
