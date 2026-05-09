@@ -50,10 +50,9 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: aria2c-windows-${{ github.run_id }}
-          path: |
-            build\**\aria2c0.exe
-            if-no-files-found: error
-            retention-days: 1
+          path: build\**\aria2c0.exe
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Create Release
         uses: ncipollo/release-action@v1
