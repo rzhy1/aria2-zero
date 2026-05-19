@@ -24,8 +24,8 @@ jobs:
         run: |
           if exist "%LOCALAPPDATA%\.xmake" rmdir /s /q "%LOCALAPPDATA%\.xmake"
           if exist ".xmake" rmdir /s /q ".xmake"
-      #- name: Setup MSVC
-      #  uses: microsoft/setup-msbuild@v3
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v3
       - name: Modify files
         shell: pwsh
         run: |
@@ -41,11 +41,11 @@ jobs:
       - name: build x64
         run: |
           xmake g --clean
-          xmake f -a x64 -c -y && xmake b
-          Get-ChildItem -Recurse -Path build -Filter aria2c.exe | ForEach-Object {
+          xmake f -p windows -a x64 -m release -c -y
+          xmake
+          Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
-             Move-Item -Path $_.FullName -Destination $newPath -Force
-             Write-Output "Renamed $($_.FullName) to $newPath"
+             Move-Item $_.FullName $newPath -Force
           }
       - uses: actions/upload-artifact@v7
         with:
