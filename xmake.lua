@@ -4,7 +4,6 @@ add_rules("mode.debug", "mode.release")
 if is_mode("release") then
     set_strip("all")
     set_symbols("none")
-    end
 end
 option("uv")
     set_default(false)
