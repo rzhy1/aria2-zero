@@ -3,8 +3,7 @@ includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
 if is_mode("release") then
     if is_plat("windows") then
-        add_cxflags("/Gy", "/Gw")
-        add_ldflags("/OPT:REF", "/OPT:ICF")
+        add_ldflags("/OPT:REF")
     end
 end
 option("uv")
