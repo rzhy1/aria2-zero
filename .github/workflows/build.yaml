@@ -24,8 +24,8 @@ jobs:
         run: |
           if exist "%LOCALAPPDATA%\.xmake" rmdir /s /q "%LOCALAPPDATA%\.xmake"
           if exist ".xmake" rmdir /s /q ".xmake"
-      - name: Setup MSVC
-        uses: microsoft/setup-msbuild@v3
+      #- name: Setup MSVC
+      #  uses: microsoft/setup-msbuild@v3
       - name: Modify files
         shell: pwsh
         run: |
