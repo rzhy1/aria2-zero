@@ -42,7 +42,7 @@ jobs:
         run: |
           xmake g --clean
           xmake f -p windows -a x64 -m release -c -y
-          xmake -j
+          xmake -j4
           Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
              Move-Item $_.FullName $newPath -Force
