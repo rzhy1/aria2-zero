@@ -24,8 +24,19 @@ jobs:
         run: |
           if exist "%LOCALAPPDATA%\.xmake" rmdir /s /q "%LOCALAPPDATA%\.xmake"
           if exist ".xmake" rmdir /s /q ".xmake"
-      - name: Setup MSVC
-        uses: microsoft/setup-msbuild@v3
+      #- name: Setup MSVC
+      #  uses: microsoft/setup-msbuild@v3
+      - name: Setup VS environment
+        shell: pwsh
+        run: |
+          # 使用 vswhere 自动找到 VS 并设置环境
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find **/vcvarsall.bat | ForEach-Object {
+              cmd /c "$_ x64 && set"
+          } | ForEach-Object {
+              if ($_ -match '^([A-Za-z0-9_]+)=(.*)$') {
+                  Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])"
+              }
+          }
       - name: Modify files
         shell: pwsh
         run: |
