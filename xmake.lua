@@ -3,11 +3,6 @@ includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
 if is_mode("release") then
     set_policy("build.optimization.lto", true)
-    
-    if is_plat("windows") then
-        add_cxflags("/Gy", "/Gw")
-        add_ldflags("/OPT:REF", "/OPT:ICF")
-    end
 end
 option("uv")
     set_default(false)
