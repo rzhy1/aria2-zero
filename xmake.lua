@@ -1,11 +1,6 @@
 includes("@builtin/check")
 includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
-if is_mode("release") then
-    if is_plat("windows") then
-        add_ldflags("/OPT:REF")
-    end
-end
 option("uv")
     set_default(false)
     set_showmenu(true)
