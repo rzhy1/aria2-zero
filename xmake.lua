@@ -7,13 +7,11 @@ if is_mode("release") then
     set_strip("all")
 
     if is_plat("windows") then
-        set_runtimes("MD")
 
-        add_cxflags("/O1", "/Gy")
+        add_cxflags("/Gy")
         add_ldflags("/OPT:REF", "/OPT:ICF")
     end
 end
-
 option("uv")
     set_default(false)
     set_showmenu(true)
