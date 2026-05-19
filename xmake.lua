@@ -2,28 +2,10 @@ includes("@builtin/check")
 includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
 if is_mode("release") then
-    -- 1. 放弃 smallest。对于模板密集的 C++ 项目，fastest (-O2/-O3) 因为能充分内联，反而通常更小
-    set_optimize("fastest")
     set_strip("all")
-    
-    -- 2. 开启 LTO (链接时优化/全程序优化)，这是缩减 C++ 静态链接体积最核心的“杀手锏”
-    set_policy("build.optimization.lto", true)
-    
-    if is_plat("windows") then
-        -- MSVC 专属极致优化
-        add_cxflags("/GF")                  -- 字符串池化（合并相同的字符串常量）
-        add_cxflags("/Gy")                  -- 启用函数级链接 (COMDAT)
-        add_cxflags("/Gw")                  -- 优化全局数据
-        add_ldflags("/OPT:REF", "/OPT:ICF") -- 链接器剔除死代码和折叠相同函数
-        -- 注意: LTO policy 会自动帮你加上 /GL 和 /LTCG
-    elseif is_plat("mingw") then
-        -- MinGW (GCC) 专属极致优化
-        add_cxflags("-ffunction-sections", "-fdata-sections") -- 让每个函数和数据独立成段
-        add_ldflags("-Wl,--gc-sections")                      -- 链接器垃圾回收死段
-        add_ldflags("-s")                                     -- 强制 strip
+    set_symbols("none")
     end
 end
-
 option("uv")
     set_default(false)
     set_showmenu(true)
