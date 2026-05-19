@@ -26,23 +26,6 @@ jobs:
           if exist ".xmake" rmdir /s /q ".xmake"
       #- name: Setup MSVC
       #  uses: microsoft/setup-msbuild@v3
-      - name: Setup Visual Studio Environment
-        shell: pwsh
-        run: |
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vcvars = & $vswhere -latest `
-            -products * `
-            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-            -find "**/vcvars64.bat"
-          if (-not $vcvars) {
-            Write-Error "Could not find vcvars64.bat"
-            exit 1
-          }
-          cmd /c "`"$vcvars`" && set" | ForEach-Object {
-            if ($_ -match "^(.*?)=(.*)$") {
-              Add-Content $env:GITHUB_ENV "$($matches[1])=$($matches[2])"
-            }
-          }
       - name: Modify files
         shell: pwsh
         run: |
