@@ -2,16 +2,7 @@ includes("@builtin/check")
 includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
 
-if is_mode("release") then
-    set_optimize("smallest")
-    set_strip("all")
 
-    if is_plat("windows") then
-
-        add_cxflags("/Gy")
-        add_ldflags("/OPT:REF", "/OPT:ICF")
-    end
-end
 option("uv")
     set_default(false)
     set_showmenu(true)
