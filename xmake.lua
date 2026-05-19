@@ -5,26 +5,12 @@ add_rules("mode.debug", "mode.release")
 if is_mode("release") then
     set_optimize("smallest")
     set_strip("all")
-    set_symbols("hidden")
-    set_policy("build.optimization.lto", true)
 
     if is_plat("windows") then
         set_runtimes("MD")
 
-        add_cxflags(
-            "/O1",
-            "/Gy",
-            "/GL"
-        )
-
-        add_ldflags(
-            "/LTCG",
-            "/OPT:REF",
-            "/OPT:ICF"
-        )
-    elseif is_plat("mingw", "linux") then
-        add_cxflags("-Os", "-ffunction-sections", "-fdata-sections")
-        add_ldflags("-Wl,--gc-sections", "-s")
+        add_cxflags("/O1", "/Gy")
+        add_ldflags("/OPT:REF", "/OPT:ICF")
     end
 end
 
