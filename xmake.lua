@@ -164,6 +164,7 @@ local sourceDirs = {
 
 target("aria2")
     set_kind("$(kind)")
+    set_strip("all") 
     add_files("deps/wslay/lib/*.c")
     
     for _, dir in ipairs(sourceDirs) do
@@ -184,7 +185,6 @@ target("aria2")
     
     on_config(function (target)
         local variables = target:get("configvar") or {}
-        -- 收集依赖选项的 configvar
         for _, opt in ipairs(target:orderopts()) do
             for name, value in pairs(opt:get("configvar")) do
                 if variables[name] == nil then
@@ -291,9 +291,6 @@ rule("mo")
     set_extensions(".po")
     on_buildcmd_file(function (target, batchcmds, sourcefile, opt)
         import("lib.detect.find_tool")
-        
-        -- 在 on_buildcmd_file 阶段（此时依赖包已全部下载并配置完毕），重新去查找 msgfmt
-        -- 并指定包环境 {envs = target:pkgenvs()}，确保必定能通过 gettext-tools 包找到
         local msgfmt = assert(find_tool("msgfmt", {envs = target:pkgenvs()}), "msgfmt not found!")
         
         local targetdir = path.join(vformat("$(builddir)/locale"), path.basename(sourcefile), "LC_MESSAGES")
@@ -307,7 +304,8 @@ rule("mo")
 rule_end()
 
 target("aria2c")
-    set_kind("binary") -- [优化] 明确指定生成的种类为二进制
+    set_kind("binary") 
+    set_strip("all") 
     
     if get_config("with_breakpad") then
         add_packages("breakpad")
@@ -338,8 +336,6 @@ xpack("aria2")
     set_homepage("https://github.com/zeromake/aria2-zero")
     set_author("zeromake<a390720046@gmail.com>")
     add_targets("aria2c")
-    
-    -- [优化] 使用 $(builddir) 替代硬编码的 build 字符串，防止用户更改输出路径时找不到文件
     add_installfiles("$(builddir)/(locale/*/LC_MESSAGES/aria2-zero.mo)", {prefixdir = "share"})
     set_basename("aria2-$(plat)-$(arch)")
 xpack_end()
@@ -347,7 +343,7 @@ xpack_end()
 if get_config("unit") then
 target("test")
     set_default(false)
-    set_kind("binary") -- [优化] 明确指定生成的种类为二进制
+    set_kind("binary") 
     add_files("test/AllTest.cc", "test/TestUtil.cc")
     add_files("test/*.cc|AllTest.cc|TestUtil.cc|CookieBoxTest.cc")
     add_deps("aria2")
