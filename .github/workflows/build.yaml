@@ -60,7 +60,7 @@ jobs:
                   Write-Host "已自动修复全局依赖脚本中的旧版架构定义: $_.FullName"
               }
           }
-          xmake config --require=yes
+          xmake config --require=yes -y
           xmake -j4 -y
           Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
