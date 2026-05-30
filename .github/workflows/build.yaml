@@ -41,42 +41,7 @@ jobs:
       - name: build x64
         run: |
           xmake g --clean
-          xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n  --require=no -c -y
-          # 深度检索全局 .xmake 目录，找到最新的 files-*.lua 并克隆生成 4.3.2 配置
-          $latestFiles = Get-ChildItem -Path "$env:XMAKE_GLOBALDIR" -Recurse -Filter "files-*.lua" -Force | Sort-Object Name -Descending | Select-Object -First 1
-          if ($latestFiles) {
-              $destFile = Join-Path $latestFiles.DirectoryName "files-4.3.2.lua"
-              Copy-Item $latestFiles.FullName $destFile -Force
-              Write-Host "已在全局仓库中自动复制并生成配置文件: $($latestFiles.FullName) -> $destFile"
-          } else {
-              Write-Host "警告：在全局目录中未找到任何用于模板的 files-*.lua 文件！"
-          }
-          
-          # 4) 【步骤 C：在配置完成后热修复架构路径，并屏蔽由于新版缺失导致的 ARM 头文件拷贝错误】
-          # 扫描全局 .xmake 目录下的所有配置脚本
-          Get-ChildItem -Path "$env:XMAKE_GLOBALDIR" -Recurse -Filter "*.lua" -Force | ForEach-Object {
-              $content = Get-Content $_.FullName
-              $newContent = @()
-              $modified = $false
-              foreach ($line in $content) {
-                  # 如果这一行包含 opensslconf.h，且包含 arm/aarch64/arm64 等非主流架构，但极其重要的是不包含主线 amd64
-                  if ($line -match "opensslconf.h" -and ($line -match "arm" -or $line -match "aarch64") -and $line -notmatch "amd64") {
-                      $line = "-- " + $line.TrimStart()  # 注入 Lua 注释，彻底屏蔽该架构的拷贝
-                      $modified = $true
-                  }
-                  # 顺便替换 aarch64 为 arm64，保证其余地方定义正常
-                  if ($line -match "aarch64") {
-                      $line = $line -replace "aarch64", "arm64"
-                      $modified = $true
-                  }
-                  $newContent += $line
-              }
-              if ($modified) {
-                  $newContent | Set-Content $_.FullName -Force
-                  Write-Host "已成功热修复并屏蔽冲突架构: $_.FullName"
-              }
-          }
-          xmake config --require=yes -y
+          xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n -c -y
           xmake -j4 -y
           Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
