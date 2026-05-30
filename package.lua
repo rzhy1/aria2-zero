@@ -12,7 +12,7 @@ add_requires(
 )
 
 local ssl_name = get_config("use_quictls") and "quictls" or "libressl"
-add_requires(ssl_name, {configs = {asm = false}})
+add_requires(ssl_name)
 add_requires("ssh2", {configs = {[ssl_name] = true}})
 
 if get_config("unit") then
