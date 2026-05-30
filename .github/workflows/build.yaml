@@ -41,7 +41,7 @@ jobs:
       - name: build x64
         run: |
           xmake g --clean
-          xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n -c -y
+          xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n  --require=no -c -y
           # 此时依赖仓库已下载。在全局 .xmake 目录中深度检索 files-*.lua 并克隆生成 4.3.2 配置
           $latestFiles = Get-ChildItem -Path "$env:XMAKE_GLOBALDIR" -Recurse -Filter "files-*.lua" -Force | Sort-Object Name -Descending | Select-Object -First 1
           if ($latestFiles) {
@@ -60,6 +60,7 @@ jobs:
                   Write-Host "已自动修复全局依赖脚本中的旧版架构定义: $_.FullName"
               }
           }
+          xmake config --require=yes
           xmake -j4 -y
           Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
