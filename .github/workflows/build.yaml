@@ -41,25 +41,25 @@ jobs:
       - name: build x64
         run: |
           xmake g --clean
-           # 在整个工作区深度检索 files-*.lua 文件，找到最新版本并就地克隆为 4.3.2 配置文件
-          $latestFiles = Get-ChildItem -Path . -Recurse -Filter "files-*.lua" -Force | Sort-Object Name -Descending | Select-Object -First 1
+          xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n -c -y
+          # 此时依赖仓库已下载。在全局 .xmake 目录中深度检索 files-*.lua 并克隆生成 4.3.2 配置
+          $latestFiles = Get-ChildItem -Path "$env:XMAKE_GLOBALDIR" -Recurse -Filter "files-*.lua" -Force | Sort-Object Name -Descending | Select-Object -First 1
           if ($latestFiles) {
               $destFile = Join-Path $latestFiles.DirectoryName "files-4.3.2.lua"
               Copy-Item $latestFiles.FullName $destFile -Force
-              Write-Host "已自动复制并生成配置文件: $($latestFiles.FullName) -> $destFile"
+              Write-Host "已在全局仓库中自动复制并生成配置文件: $($latestFiles.FullName) -> $destFile"
           } else {
-              Write-Host "警告：在工作区中未找到任何用于模板的 files-*.lua 文件！"
+              Write-Host "警告：在全局目录中未找到任何用于模板的 files-*.lua 文件！"
           }
           
-          # 3) 【第二步：全自动热修复 aarch64 路径】
-          # 扫描本地工作区所有脚本，将陈旧的 aarch64 替换为现代的 arm64
-          Get-ChildItem -Path . -Recurse -Filter "*.lua" -Force | ForEach-Object {
+          # 4) 【步骤 C：在配置完成后热修复 aarch64 路径】
+          # 扫描全局 .xmake 目录下的所有配置脚本，将陈旧的 aarch64 替换为 arm64 架构路径
+          Get-ChildItem -Path "$env:XMAKE_GLOBALDIR" -Recurse -Filter "*.lua" -Force | ForEach-Object {
               if (Select-String -Path $_.FullName -Pattern "aarch64") {
                   (Get-Content $_.FullName) -replace "aarch64", "arm64" | Set-Content $_.FullName -Force
-                  Write-Host "已自动修复文件中的旧版架构定义: $_.FullName"
+                  Write-Host "已自动修复全局依赖脚本中的旧版架构定义: $_.FullName"
               }
           }
-          xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n -c -y
           xmake -j4 -y
           Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
