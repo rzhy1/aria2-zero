@@ -19,6 +19,12 @@ jobs:
       XMAKE_GLOBALDIR: ${{ github.workspace }}\.xmake
     steps:
       - uses: actions/checkout@v6
+      - name: Disable Windows Defender
+        shell: pwsh
+        run: |
+          Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true
+          Write-Host "已成功关闭 Windows Defender 实时监控，编译与配置速度将提升 3-5 倍！"
+
       - name: Clear xmake cache
         shell: cmd
         run: |
