@@ -41,6 +41,7 @@ jobs:
       - name: build x64
         run: |
           xmake g --clean
+          xmake g --yes
           xmake config -p windows -a x64 -m release --tls=openssl -c -y
           xmake -j4
           Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
