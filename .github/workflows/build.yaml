@@ -41,15 +41,14 @@ jobs:
       - name: build x64
         run: |
           xmake g --clean
-           # 寻找本地 port 目录，并将最接近的 files-4.0.0.lua 复制为 4.3.2 配置
-          $portDir = Get-ChildItem -Path . -Recurse -Directory -Filter "port" -Force | Select-Object -First 1
-          if ($portDir) {
-              $latestFiles = Get-ChildItem -Path $portDir.FullName -Filter "files-*.lua" | Sort-Object Name -Descending | Select-Object -First 1
-              if ($latestFiles) {
-                  $destFile = Join-Path $portDir.FullName "files-4.3.2.lua"
-                  Copy-Item $latestFiles.FullName $destFile -Force
-                  Write-Host "已自动复制并生成配置文件: $($latestFiles.Name) -> files-4.3.2.lua"
-              }
+           # 在整个工作区深度检索 files-*.lua 文件，找到最新版本并就地克隆为 4.3.2 配置文件
+          $latestFiles = Get-ChildItem -Path . -Recurse -Filter "files-*.lua" -Force | Sort-Object Name -Descending | Select-Object -First 1
+          if ($latestFiles) {
+              $destFile = Join-Path $latestFiles.DirectoryName "files-4.3.2.lua"
+              Copy-Item $latestFiles.FullName $destFile -Force
+              Write-Host "已自动复制并生成配置文件: $($latestFiles.FullName) -> $destFile"
+          } else {
+              Write-Host "警告：在工作区中未找到任何用于模板的 files-*.lua 文件！"
           }
           
           # 3) 【第二步：全自动热修复 aarch64 路径】
