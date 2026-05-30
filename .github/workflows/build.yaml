@@ -42,10 +42,10 @@ jobs:
         run: |
           xmake g --clean
           # 自动扫描并把所有依赖编译脚本中的 aarch64 替换为现代的 arm64
-          Get-ChildItem -Path . -Recurse -Filter "xmake.lua" | ForEach-Object {
+          Get-ChildItem -Path . -Recurse -Filter "*.lua" -Force | ForEach-Object {
               if (Select-String -Path $_.FullName -Pattern "aarch64") {
-                  (Get-Content $_.FullName) -replace "aarch64", "arm64" | Set-Content $_.FullName
-                  Write-Host "已自动修复文件中的旧版架构定义: $_.FullName"
+                  (Get-Content $_.FullName) -replace "aarch64", "arm64" | Set-Content $_.FullName -Force
+                  Write-Host "已全自动修复底层编译脚本: $_.FullName"
               }
           }
           xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n -c -y
