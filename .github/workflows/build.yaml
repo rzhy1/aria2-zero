@@ -19,7 +19,21 @@ jobs:
       XMAKE_GLOBALDIR: ${{ github.workspace }}\.xmake
     steps:
       - uses: actions/checkout@v6
+      - name: Disable Windows Defender
+        shell: pwsh
+        run: |
+          Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true
+          Write-Host "已发送关闭 Windows Defender 指令！"
 
+      # 2) 【新增校验步骤】：查询并打印杀软的实时真实状态
+      - name: Verify Defender Status
+        shell: pwsh
+        run: |
+          $status = Get-MpComputerStatus
+          Write-Host "==================== [校验] Windows Defender 状态 ===================="
+          Write-Host "实时防护开启状态 (RealTimeProtectionEnabled): $($status.RealTimeProtectionEnabled)"
+          Write-Host "杀毒引擎激活状态 (AntivirusEnabled): $($status.AntivirusEnabled)"
+          Write-Host "======================================================================="
       - name: Clear xmake cache
         shell: cmd
         run: |
