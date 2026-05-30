@@ -48,24 +48,13 @@ jobs:
         shell: pwsh
         run: |
           xmake g --clean
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n -c -y
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           xmake -j4 -y
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
              Move-Item $_.FullName $newPath -Force
           }
-      - name: Print failure logs
-        if: failure()
-        shell: pwsh
-        run: |
-          Get-ChildItem -Path .xmake -Recurse -Filter "install.txt" -Force | ForEach-Object {
-              Write-Host "==================== [错误日志] 自动打印: $($_.FullName) ===================="
-              Get-Content $_.FullName -Tail 150
-              Write-Host "========================================================================"
-          }
+
       - uses: actions/upload-artifact@v7
         with:
           name: aria2c-windows-${{ github.run_id }}
