@@ -41,7 +41,7 @@ jobs:
       - name: build x64
         run: |
           xmake g --clean
-          xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n --lto=y -c -y
+          xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n -c -y
           xmake -j4 -y
           Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
