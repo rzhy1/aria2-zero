@@ -39,15 +39,15 @@ jobs:
         with:
           xmake-version: latest
       - name: build x64
+        shell: bash
         run: |
-          set -e
           xmake g --clean
           xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=n -c -y
           xmake -j4 -y
-          Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
+          powershell -Command "Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
              $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
              Move-Item $_.FullName $newPath -Force
-          }
+          }"
       - name: Print failure logs
         if: failure()
         shell: pwsh
