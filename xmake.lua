@@ -2,13 +2,6 @@ includes("@builtin/check")
 includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
 
--- [优化控制] 
-local ENABLE_LTO = true -- 如果你希望体积更小，可以尝试将其改为 false（关闭跨文件模板激进内联）
-
-if is_mode("release") then
-    set_optimize("faster") -- 保持默认的 -O2 优化级别
-end
-
 option("uv")
     set_default(false)
     set_showmenu(true)
