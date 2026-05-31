@@ -32,7 +32,12 @@ option("unit")
     set_description("Build unit test")
 option_end()
 
-local ssl_external = get_config("ssl_external") or is_plat("linux", "android", "bsd")
+local ssl_external = get_config("ssl_external")
+if type(ssl_external) == "string" then
+    ssl_external = (ssl_external == "y" or ssl_external == "yes" or ssl_external == "true")
+elseif ssl_external == nil then
+    ssl_external = is_plat("linux", "android", "bsd")
+end
 
 includes("package.lua")
 set_languages("c++14")
