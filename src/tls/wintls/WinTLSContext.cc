@@ -59,14 +59,6 @@
 #  define SP_PROT_TLS1_2_SERVER 0x00000400
 #endif
 
-// 定义 Windows SChannel TLS 1.3 客户端和服务器协议常量
-#ifndef SP_PROT_TLS1_3_CLIENT
-#  define SP_PROT_TLS1_3_CLIENT 0x00002000
-#endif
-#ifndef SP_PROT_TLS1_3_SERVER
-#  define SP_PROT_TLS1_3_SERVER 0x00001000
-#endif
-
 #ifndef SCH_USE_STRONG_CRYPTO
 #  define SCH_USE_STRONG_CRYPTO 0x00400000
 #endif
@@ -114,24 +106,8 @@ WinTLSContext::WinTLSContext(TLSSessionSide side, TLSVersion ver)
   setVerifyPeer(side_ == TLS_CLIENT);
 }
 
-// 动态获取系统主版本及 Build 号，仅在 Windows 11 / Server 2022+ 稳定支持 TLS 1.3 的系统上启用
 bool WinTLSContext::isTLS13Supported()
 {
-  typedef LONG(WINAPI* RtlGetVersionPtr)(void*);
-  HMODULE hMod = ::GetModuleHandleW(L"ntdll.dll");
-  if (hMod) {
-    RtlGetVersionPtr pRtlGetVersion = (RtlGetVersionPtr)::GetProcAddress(hMod, "RtlGetVersion");
-    if (pRtlGetVersion) {
-      // 284 字节 OSVERSIONINFOEXW 大小
-      unsigned long osvi[71] = {0};
-      osvi[0] = sizeof(osvi);
-      if (pRtlGetVersion(osvi) == 0) {
-        unsigned long major = osvi[1];
-        unsigned long build = osvi[3];
-        return major > 10 || (major == 10 && build >= 20348);
-      }
-    }
-  }
   return false;
 }
 
@@ -155,26 +131,34 @@ bool WinTLSContext::getVerifyPeer() const
   return credentialsFlags_ & SCH_CRED_AUTO_CRED_VALIDATION;
 }
 
-// [已修复] 移除了对非成员变量 credentials_ 的访问，默认安全启用强加密标志 SCH_USE_STRONG_CRYPTO
 void WinTLSContext::setVerifyPeer(bool verify)
 {
   cred_.reset();
 
-  DWORD dwFlags = SCH_CRED_NO_DEFAULT_CREDS | SCH_USE_STRONG_CRYPTO;
-
-  if (side_ != TLS_CLIENT || !verify) {
-    // 无需验证服务器证书（服务器模式或用户显式跳过证书检查）
-    dwFlags |= SCH_CRED_MANUAL_CRED_VALIDATION | 
-               SCH_CRED_IGNORE_NO_REVOCATION_CHECK |
-               SCH_CRED_IGNORE_REVOCATION_OFFLINE | 
-               SCH_CRED_NO_SERVERNAME_CHECK;
+  // Never automatically push any client or server certs. We'll do cert setup
+  // ourselves.
+  DWORD dwFlags = 0;
+  if (isTLS13Supported()) {
+    dwFlags = SCH_CRED_NO_DEFAULT_CREDS | SCH_USE_STRONG_CRYPTO;
   } else {
-    // 强制自动校验证书链
-    dwFlags |= SCH_CRED_AUTO_CRED_VALIDATION |
-               SCH_CRED_REVOCATION_CHECK_CHAIN |
-               SCH_CRED_IGNORE_NO_REVOCATION_CHECK;
+    dwFlags = SCH_CRED_NO_DEFAULT_CREDS;
+      // Enable strong crypto if we already set a minimum cipher streams.
+      // This might actually require even stronger algorithms, which is a good
+      // thing.
+      // dwFlags |= SCH_USE_STRONG_CRYPTO;
+  }
+  if (side_ != TLS_CLIENT || !verify) {
+    // No verification for servers and if user explicitly requested it
+    dwFlags |=
+        SCH_CRED_MANUAL_CRED_VALIDATION | SCH_CRED_IGNORE_NO_REVOCATION_CHECK |
+        SCH_CRED_IGNORE_REVOCATION_OFFLINE | SCH_CRED_NO_SERVERNAME_CHECK;
+    return;
   }
 
+  // Verify other side's cert chain.
+  dwFlags |= SCH_CRED_AUTO_CRED_VALIDATION |
+                          SCH_CRED_REVOCATION_CHECK_CHAIN |
+                          SCH_CRED_IGNORE_NO_REVOCATION_CHECK;
   credentialsFlags_ = dwFlags;
 }
 
@@ -200,15 +184,15 @@ CredHandle* WinTLSContext::getCredHandle()
     tls_parameters_.pDisabledCrypto = crypto_settings_;
     tls_parameters_.cDisabledCrypto = (DWORD)0;
     credentials13_.dwVersion = SCH_CREDENTIALS_VERSION;
-    credentials13_.dwFlags = credentialsFlags_; // 将验证标志传递给 TLS 1.3
+    credentials13_.dwFlags = SCH_USE_STRONG_CRYPTO;
     credentials13_.pTlsParameters = &tls_parameters_;
     credentials13_.cTlsParameters = 1;
     credentials13_.pTlsParameters->grbitDisabledProtocols = (DWORD)~enabled_protocols_;
   } else {
     memset(&credentials_, 0, sizeof(credentials_));
     credentials_.dwVersion = SCHANNEL_CRED_VERSION;
+    credentials_.grbitEnabledProtocols = 0;
     credentials_.grbitEnabledProtocols = enabled_protocols_;
-    credentials_.dwFlags = credentialsFlags_;   // 将验证标志传递给旧版本 SChannel
   }
 
   const CERT_CONTEXT* ctx = nullptr;
