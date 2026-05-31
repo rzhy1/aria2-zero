@@ -59,6 +59,14 @@
 #  define SP_PROT_TLS1_2_SERVER 0x00000400
 #endif
 
+-- [修复] 新增 Windows SChannel TLS 1.3 客户端和服务器常量的定义
+#ifndef SP_PROT_TLS1_3_CLIENT
+#  define SP_PROT_TLS1_3_CLIENT 0x00002000
+#endif
+#ifndef SP_PROT_TLS1_3_SERVER
+#  define SP_PROT_TLS1_3_SERVER 0x00001000
+#endif
+
 #ifndef SCH_USE_STRONG_CRYPTO
 #  define SCH_USE_STRONG_CRYPTO 0x00400000
 #endif
@@ -106,8 +114,25 @@ WinTLSContext::WinTLSContext(TLSSessionSide side, TLSVersion ver)
   setVerifyPeer(side_ == TLS_CLIENT);
 }
 
+-- [修复] 使用动态链接 ntdll 获取精确的 Windows 系统版本号
 bool WinTLSContext::isTLS13Supported()
 {
+  typedef LONG(WINAPI* RtlGetVersionPtr)(void*);
+  HMODULE hMod = ::GetModuleHandleW(L"ntdll.dll");
+  if (hMod) {
+    RtlGetVersionPtr pRtlGetVersion = (RtlGetVersionPtr)::GetProcAddress(hMod, "RtlGetVersion");
+    if (pRtlGetVersion) {
+      // 分配一个足够容纳 OSVERSIONINFOEXW 的缓冲区 (284 字节)
+      unsigned long osvi[71] = {0};
+      osvi[0] = sizeof(osvi); // dwOSVersionInfoSize
+      if (pRtlGetVersion(osvi) == 0) {
+        unsigned long major = osvi[1]; // dwMajorVersion
+        unsigned long build = osvi[3]; // dwBuildNumber
+        // Windows 11 的 Build 号从 22000 开始，Windows Server 2022 从 20348 开始支持 TLS 1.3
+        return major > 10 || (major == 10 && build >= 20348);
+      }
+    }
+  }
   return false;
 }
 
