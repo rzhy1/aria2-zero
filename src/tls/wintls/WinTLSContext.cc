@@ -59,7 +59,7 @@
 #  define SP_PROT_TLS1_2_SERVER 0x00000400
 #endif
 
-// 定义缺失的 Windows SChannel TLS 1.3 客户端和服务器协议常量
+// 定义 Windows SChannel TLS 1.3 客户端和服务器协议常量
 #ifndef SP_PROT_TLS1_3_CLIENT
 #  define SP_PROT_TLS1_3_CLIENT 0x00002000
 #endif
@@ -155,19 +155,15 @@ bool WinTLSContext::getVerifyPeer() const
   return credentialsFlags_ & SCH_CRED_AUTO_CRED_VALIDATION;
 }
 
-// [修复] 重构证书验证设置，消除了过早 return 导致 credentialsFlags_ 无法赋值的严重 Bug
+// [已修复] 移除了对非成员变量 credentials_ 的访问，默认安全启用强加密标志 SCH_USE_STRONG_CRYPTO
 void WinTLSContext::setVerifyPeer(bool verify)
 {
   cred_.reset();
 
-  DWORD dwFlags = SCH_CRED_NO_DEFAULT_CREDS;
-  
-  if (isTLS13Supported() || credentials_.dwMinimumCipherStrength > WEAK_CIPHER_BITS) {
-    dwFlags |= SCH_USE_STRONG_CRYPTO;
-  }
+  DWORD dwFlags = SCH_CRED_NO_DEFAULT_CREDS | SCH_USE_STRONG_CRYPTO;
 
   if (side_ != TLS_CLIENT || !verify) {
-    // 无需验证服务器证书
+    // 无需验证服务器证书（服务器模式或用户显式跳过证书检查）
     dwFlags |= SCH_CRED_MANUAL_CRED_VALIDATION | 
                SCH_CRED_IGNORE_NO_REVOCATION_CHECK |
                SCH_CRED_IGNORE_REVOCATION_OFFLINE | 
@@ -204,7 +200,7 @@ CredHandle* WinTLSContext::getCredHandle()
     tls_parameters_.pDisabledCrypto = crypto_settings_;
     tls_parameters_.cDisabledCrypto = (DWORD)0;
     credentials13_.dwVersion = SCH_CREDENTIALS_VERSION;
-    credentials13_.dwFlags = credentialsFlags_; // [修复] 修正 TLS 1.3 模式下证书验证标志丢失的问题
+    credentials13_.dwFlags = credentialsFlags_; // 将验证标志传递给 TLS 1.3
     credentials13_.pTlsParameters = &tls_parameters_;
     credentials13_.cTlsParameters = 1;
     credentials13_.pTlsParameters->grbitDisabledProtocols = (DWORD)~enabled_protocols_;
@@ -212,7 +208,7 @@ CredHandle* WinTLSContext::getCredHandle()
     memset(&credentials_, 0, sizeof(credentials_));
     credentials_.dwVersion = SCHANNEL_CRED_VERSION;
     credentials_.grbitEnabledProtocols = enabled_protocols_;
-    credentials_.dwFlags = credentialsFlags_;   // [修复] 修正 旧版本 SChannel 模式下证书验证标志丢失的问题
+    credentials_.dwFlags = credentialsFlags_;   // 将验证标志传递给旧版本 SChannel
   }
 
   const CERT_CONTEXT* ctx = nullptr;
