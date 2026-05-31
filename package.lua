@@ -22,7 +22,7 @@ if ssl_external then
     add_requires("ssh2", {configs = {[ssl_name] = true}})
 else
     if is_plat("windows", "mingw") then
-        add_requires("ssh2", {configs = {crypto = "wincng"}})
+        add_requires("libssh2", {configs = {crypto = "wincng"}})
     elseif is_plat("macosx", "iphoneos") then
         add_requires("ssh2", {configs = {crypto = "securetransport"}})
     end
