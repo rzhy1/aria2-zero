@@ -24,8 +24,7 @@ else
     elseif is_plat("macosx", "iphoneos") then
         add_requires("ssh2", {configs = {crypto = "securetransport"}})
     else
-        -- 将此处的 raise 替换为 error
-        error("ssl_external=false is not supported on Linux/BSD. Please use --ssl_external=true")
+        raise("ssl_external=false is not supported on Linux/BSD. Please use --ssl_external=true")
     end
 end
 
