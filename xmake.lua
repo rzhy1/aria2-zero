@@ -282,7 +282,7 @@ target("aria2")
         "zlib",
         "sqlite3",
         "c-ares",
-        "ssh2",
+        "libssh2",
         "boost.intl",
         {public = true}
     )
