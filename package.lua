@@ -23,9 +23,8 @@ else
         add_requires("ssh2", {configs = {crypto = "wincng"}})
     elseif is_plat("macosx", "iphoneos") then
         add_requires("ssh2", {configs = {crypto = "securetransport"}})
-    else
-        raise("ssl_external=false is not supported on Linux/BSD. Please use --ssl_external=true")
     end
+    -- 移除了在此处抛出错误的 else 分支，避免在配置初始化阶段引发崩溃
 end
 
 if get_config("unit") then
