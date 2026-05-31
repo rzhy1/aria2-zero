@@ -10,6 +10,7 @@ option_end()
 
 option("ssl_external")
     set_default(false)
+    set_type("boolean")
     set_showmenu(true)
     set_description("Use external ssl library")
 option_end()
