@@ -1,7 +1,23 @@
 includes("@builtin/check")
 includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
-set_policy("build.optimization.lto", true)
+
+-- [优化] 仅在 release 模式下启用 LTO、-O2 优化及符号裁剪
+if is_mode("release") then
+    set_policy("build.optimization.lto", true)
+    set_optimize("faster")            -- 显式指定 -O2 优化级别（平衡速度与体积）
+    set_symbols("hidden")             -- 隐藏导出符号，便于 LTO 识别死代码
+    set_strip("all")                  -- 移除所有调试符号
+
+    -- 针对静态链接库，依旧开启死代码消除 (DCE)
+    if is_plat("windows", "mingw") then
+        add_ldflags("/OPT:REF", "/OPT:ICF", {force = true})
+    else
+        add_cxflags("-ffunction-sections", "-fdata-sections", {force = true})
+        add_ldflags("-Wl,--gc-sections", {force = true})
+    end
+end
+
 option("uv")
     set_default(false)
     set_showmenu(true)
@@ -40,7 +56,7 @@ set_encodings("utf-8")
 set_license("GPL-2.0")
 set_rundir(".")
 
--- [优化] 将通用的宏定义提取到全局
+-- 将通用的宏定义提取到全局
 add_defines("CXX11_OVERRIDE=override")
 add_defines("HAVE_CONFIG_H=1")
 
@@ -51,7 +67,7 @@ if is_plat("windows") then
     add_cxxflags("/EHsc")
 end
 
--- [优化] 移除原本硬编码的 /Zi, /Fd 和 -g。通过 set_symbols("debug") 统一让 Xmake 跨平台处理符号生成
+-- 仅在启用 breakpad 时生成调试符号
 if get_config("with_breakpad") then
     set_symbols("debug")
 end
@@ -102,7 +118,7 @@ else
     set_configvar("ENABLE_PTHREAD", 1)
 end
 
--- [优化] 采用循环结构清理冗长的静态配置项变量
+-- 静态配置项变量
 local config_vars = {
     ENABLE_METALINK = 1, ENABLE_XML_RPC = 1, ENABLE_BITTORRENT = 1, ENABLE_SSL = 1,
     HAVE_LIBCARES = 1, HAVE_LIBSSH2 = 1, HAVE_OPENSSL = 1, HAVE_EVP_SHA224 = 1,
@@ -164,7 +180,6 @@ local sourceDirs = {
 
 target("aria2")
     set_kind("$(kind)")
-    set_strip("all") 
     add_files("deps/wslay/lib/*.c")
     
     for _, dir in ipairs(sourceDirs) do
@@ -204,7 +219,6 @@ target("aria2")
         set_configvar("BUILD", vformat("$(arch)-$(os)"))
         set_configvar("TARGET", vformat("$(arch)-$(os)"))
         
-        -- [优化] 简化兼容源文件的添加逻辑
         local compat_sources = {
             ["HAVE_ASCTIME_R"]   = "compat/asctime_r.c",
             ["HAVE_GETADDRINFO"] = "compat/getaddrinfo.c",
@@ -229,7 +243,6 @@ target("aria2")
         end
         
         if get_config("unit") then
-            -- [优化] 使用 Xmake 的跨平台统一路径格式，避免手动替换 "\\" 为 "/"，使用 vformat 处理内建变量
             local dir = path.unix(path.absolute(os.projectdir()))
             set_configvar('A2_TEST_DIR', path.join(dir, 'test/data'))
             set_configvar('A2_TEST_OUT_DIR', path.unix(vformat('$(builddir)/test_out')))
@@ -244,7 +257,6 @@ target("aria2")
 
     if ssl_external then
         add_files("src/tls/libssl/*.cc", "src/crypto/libssl/*.cc")
-        -- [优化] 修正外部 SSL 包依赖逻辑：仅在 ssl_external 启用时才下载/链接依赖包，避免强制依赖
         add_packages(get_config("use_quictls") and "quictls" or "libressl", {public = true})
     else
         if is_plat("windows", "mingw") then
@@ -305,7 +317,6 @@ rule_end()
 
 target("aria2c")
     set_kind("binary") 
-    set_strip("all") 
     
     if get_config("with_breakpad") then
         add_packages("breakpad")
