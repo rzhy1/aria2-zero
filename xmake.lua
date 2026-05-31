@@ -2,20 +2,11 @@ includes("@builtin/check")
 includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
 
--- [优化] 仅在 release 模式下启用 LTO、-O2 优化及符号裁剪
+-- [优化] 仅在 release 模式下启用 LTO
 if is_mode("release") then
     set_policy("build.optimization.lto", true)
-    set_optimize("faster")            -- 显式指定 -O2 优化级别（平衡速度与体积）
-    set_symbols("hidden")             -- 隐藏导出符号，便于 LTO 识别死代码
-    set_strip("all")                  -- 移除所有调试符号
-
-    -- 针对静态链接库，依旧开启死代码消除 (DCE)
-    if is_plat("windows", "mingw") then
-        add_ldflags("/OPT:REF", "/OPT:ICF", {force = true})
-    else
-        add_cxflags("-ffunction-sections", "-fdata-sections", {force = true})
-        add_ldflags("-Wl,--gc-sections", {force = true})
-    end
+    set_optimize("faster")            -- 显式指定 -O2 优化级别
+    set_symbols("hidden")             -- 隐藏符号导出，方便 LTO 识别死代码
 end
 
 option("uv")
@@ -180,6 +171,7 @@ local sourceDirs = {
 
 target("aria2")
     set_kind("$(kind)")
+    set_strip("all") -- 恢复至 Target 内部，确保始终强制剥离符号
     add_files("deps/wslay/lib/*.c")
     
     for _, dir in ipairs(sourceDirs) do
@@ -198,6 +190,17 @@ target("aria2")
     add_includedirs("compat", "src/tls", "src/crypto", "src/poll", "src/protocol/sftp")
     add_defines("WSLAY_VERSION=\""..PROJECT_VERSION.."\"")
     
+    -- [优化] 严格区分编译平台与工具链，确保垃圾回收生效
+    if is_plat("windows") and not is_plat("mingw") then
+        -- MSVC 环境
+        add_cxflags("/Gy")
+        add_ldflags("/OPT:REF", "/OPT:ICF")
+    else
+        -- GCC / Clang / MinGW 等环境
+        add_cxflags("-ffunction-sections", "-fdata-sections")
+        add_ldflags("-Wl,--gc-sections")
+    end
+
     on_config(function (target)
         local variables = target:get("configvar") or {}
         for _, opt in ipairs(target:orderopts()) do
@@ -317,6 +320,7 @@ rule_end()
 
 target("aria2c")
     set_kind("binary") 
+    set_strip("all") -- 恢复至 Target 内部，确保始终强制剥离符号
     
     if get_config("with_breakpad") then
         add_packages("breakpad")
@@ -334,6 +338,14 @@ target("aria2c")
     add_deps("aria2")
     add_includedirs("include", "compat", "src/core", "src/tls", "src/network", "src/util", "src/storage")
     
+    if is_plat("windows") and not is_plat("mingw") then
+        add_cxflags("/Gy")
+        add_ldflags("/OPT:REF", "/OPT:ICF")
+    else
+        add_cxflags("-ffunction-sections", "-fdata-sections")
+        add_ldflags("-Wl,--gc-sections")
+    end
+
     if is_plat("mingw") then
         add_ldflags("-static")
     end
