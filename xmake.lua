@@ -175,8 +175,24 @@ local sourceDirs = {
     "src/protocol/utm", "src/protocol/ws", "src/rpc", "src/storage", "src/stream",
     "src/util"
 }
+set_policy("build.optimization.lto", true) -- 开启全局 LTO（自动适配 MSVC/GCC/Clang）
+rule("size_optimize")
+    on_config(function (target)
+        target:set("optimize", "smallest") -- 优化目标为体积最小
+        target:set("strip", "all")         -- 剥离所有符号表
 
+        -- 针对不同编译器应用死代码剔除
+        if target:has_tool("cc", "cl") then -- MSVC
+            target:add("cxflags", "/Gy") 
+            target:add("ldflags", "/OPT:REF", "/OPT:ICF", {force = true})
+        else -- GCC / Clang / MinGW
+            target:add("cxflags", "-ffunction-sections", "-fdata-sections", "-fvisibility=hidden")
+            target:add("ldflags", "-Wl,--gc-sections", "-Wl,--exclude-libs,ALL", {force = true})
+        end
+    end)
+rule_end()
 target("aria2")
+    add_rules("size_optimize")
     set_kind("$(kind)")
     set_strip("all")
     add_files("deps/wslay/lib/*.c")
@@ -325,6 +341,7 @@ rule("mo")
 rule_end()
 
 target("aria2c")
+    add_rules("size_optimize")
     set_kind("binary") 
     set_strip("all") -- 强制剥离所有符号
     
