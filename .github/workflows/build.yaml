@@ -40,6 +40,10 @@ jobs:
           (Get-Content -Path $filePath1) -replace '"1", 1, 16, ''x''', '"1", 1, 1024, ''x''' | Set-Content -Path $filePath1
           (Get-Content -Path $filePath1) -replace 'PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g', 'PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g' | Set-Content -Path $filePath1
           (Get-Content -Path $filePath2) -replace 'local PROJECT_VERSION = os.getenv\("VERSION"\) or "1.37.0-development"', 'local PROJECT_VERSION = "1.37.0"' | Set-Content -Path $filePath2
+     
+      - name: Setup NASM
+        uses: ilammy/setup-nasm@v1
+      
       - name: xmake
         uses: xmake-io/github-action-setup-xmake@v1
         with:
