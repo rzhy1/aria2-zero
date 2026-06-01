@@ -175,7 +175,7 @@ local sourceDirs = {
     "src/protocol/utm", "src/protocol/ws", "src/rpc", "src/storage", "src/stream",
     "src/util"
 }
-set_policy("build.optimization.lto", true) -- 开启全局 LTO（自动适配 MSVC/GCC/Clang）
+
 rule("size_optimize")
     on_config(function (target)
         target:set("optimize", "smallest") -- 优化目标为体积最小
@@ -317,7 +317,7 @@ target("aria2")
         "zlib",
         "sqlite3",
         "c-ares",
-        "ssh2",
+        "libssh2",
         "boost.intl",
         {public = true}
     )
