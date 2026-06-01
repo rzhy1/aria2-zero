@@ -181,10 +181,10 @@ rule("size_optimize")
         target:set("optimize", "smallest") 
         target:set("strip", "all") 
         if target:has_tool("cc", "cl") then -- MSVC
-            target:add("cxflags", "/Gy", "/Gw", "/GF", "/GS-", "/Zc:inline", "/GR-") 
-            target:add("ldflags", "/OPT:REF", "/OPT:ICF", "/MANIFEST:NO", {force = true})
-        else -- GCC / Clang / MinGW
-            target:add("cxflags", "-ffunction-sections", "-fdata-sections", "-fvisibility=hidden")
+            target:add("cxflags", "/Gy", "/Gw", "/GF", "/Zc:inline", "/GR-", "/GL", "/fp:fast") 
+            target:add("ldflags", "/OPT:REF", "/OPT:ICF", "/MANIFEST:NO", "/LTCG", "/PDBALTPATH:%_PDB%", {force = true})
+        else
+            target:add("cxflags", "-ffunction-sections", "-fdata-sections", "-fvisibility=hidden", "-fno-rtti")
             target:add("ldflags", "-Wl,--gc-sections", "-Wl,--exclude-libs,ALL", {force = true})
         end
     end)
