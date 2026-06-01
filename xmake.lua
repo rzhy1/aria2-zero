@@ -17,7 +17,7 @@ option_end()
 option("use_quictls")
     set_default(true)
     set_showmenu(true)
-    set_description("Use external use_quictls library")
+    set_description("Use quictls instead of libressl")
 option_end()
 
 option("with_breakpad")
@@ -32,11 +32,19 @@ option("unit")
     set_description("Build unit test")
 option_end()
 
+-- 统一配置项解析
 local ssl_external = get_config("ssl_external")
 if type(ssl_external) == "string" then
     ssl_external = (ssl_external == "y" or ssl_external == "yes" or ssl_external == "true")
 elseif ssl_external == nil then
     ssl_external = is_plat("linux", "android", "bsd")
+end
+
+local use_quictls = get_config("use_quictls")
+if type(use_quictls) == "string" then
+    use_quictls = (use_quictls == "y" or use_quictls == "yes" or use_quictls == "true")
+elseif use_quictls == nil then
+    use_quictls = true
 end
 
 includes("package.lua")
@@ -107,7 +115,7 @@ else
     set_configvar("ENABLE_PTHREAD", 1)
 end
 
--- 静态配置项变量（还原：恢复定义 HAVE_OPENSSL 以编译 libssl 加密后端）
+-- 静态配置项变量
 local config_vars = {
     ENABLE_METALINK = 1, ENABLE_XML_RPC = 1, ENABLE_BITTORRENT = 1, ENABLE_SSL = 1,
     HAVE_LIBCARES = 1, HAVE_LIBSSH2 = 1, HAVE_OPENSSL = 1, HAVE_EVP_SHA224 = 1,
@@ -170,7 +178,7 @@ local sourceDirs = {
 
 target("aria2")
     set_kind("$(kind)")
-    set_strip("all") -- 强制剥离所有符号
+    set_strip("all")
     add_files("deps/wslay/lib/*.c")
     
     for _, dir in ipairs(sourceDirs) do
@@ -246,20 +254,28 @@ target("aria2")
         add_syslinks("ws2_32", "shell32", "iphlpapi")
     end
 
+    -- SSL 模块选择逻辑
     if ssl_external then
+        -- 外部 TLS 模式
         add_files("src/tls/libssl/*.cc", "src/crypto/libssl/*.cc")
-        add_packages(get_config("use_quictls") and "quictls" or "libressl", {public = true})
     else
+        -- 系统 TLS 模式 (SChannel 或 Apple SecureTransport)
         if is_plat("windows", "mingw") then
-            add_files("src/tls/wintls/*.cc") -- 传输层使用系统的 wintls (SChannel)
+            add_files("src/tls/wintls/*.cc")
             add_syslinks("crypt32", "secur32")
             set_configvar("SECURITY_WIN32", 1)
         elseif is_plat("macosx", "iphoneos") then
             add_files("src/tls/apple/*.cc")
             add_frameworks("CoreFoundation", "Security")
         end
-        -- 混合模式下，底层加密仍使用 libressl 算法，拉取外部依赖（绕开缺失的 wincng 源码）
+        -- 混合模式下，底层加密算法依然需要链接到指定的外部加密库
         add_files("src/crypto/libssl/*.cc")
+    end
+
+    -- 统一链接根据配置选择的加密库
+    if use_quictls then
+        add_packages("quictls", {public = true})
+    else
         add_packages("libressl", {public = true})
     end
 
