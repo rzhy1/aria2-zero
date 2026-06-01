@@ -181,9 +181,8 @@ rule("size_optimize")
         target:set("optimize", "smallest") 
         target:set("strip", "all") 
         if target:has_tool("cc", "cl") then -- MSVC
-            -- 合并了 /Gy、/Gw、/GF、/GS-、/Zc:inline 优化参数
-            target:add("cxflags", "/Gy", "/Gw", "/GF", "/GS-", "/Zc:inline") 
-            target:add("ldflags", "/OPT:REF", "/OPT:ICF", {force = true})
+            target:add("cxflags", "/Gy", "/Gw", "/GF", "/GS-", "/Zc:inline", "/GR-") 
+            target:add("ldflags", "/OPT:REF", "/OPT:ICF", "/MANIFEST:NO", {force = true})
         else -- GCC / Clang / MinGW
             target:add("cxflags", "-ffunction-sections", "-fdata-sections", "-fvisibility=hidden")
             target:add("ldflags", "-Wl,--gc-sections", "-Wl,--exclude-libs,ALL", {force = true})
