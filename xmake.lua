@@ -178,12 +178,11 @@ local sourceDirs = {
 
 rule("size_optimize")
     on_config(function (target)
-        target:set("optimize", "smallest") -- 优化目标为体积最小
-        target:set("strip", "all")         -- 剥离所有符号表
-
-        -- 针对不同编译器应用死代码剔除
+        target:set("optimize", "smallest") 
+        target:set("strip", "all") 
         if target:has_tool("cc", "cl") then -- MSVC
-            target:add("cxflags", "/Gy") 
+            -- 合并了 /Gy、/Gw、/GF、/GS-、/Zc:inline 优化参数
+            target:add("cxflags", "/Gy", "/Gw", "/GF", "/GS-", "/Zc:inline") 
             target:add("ldflags", "/OPT:REF", "/OPT:ICF", {force = true})
         else -- GCC / Clang / MinGW
             target:add("cxflags", "-ffunction-sections", "-fdata-sections", "-fvisibility=hidden")
@@ -191,10 +190,10 @@ rule("size_optimize")
         end
     end)
 rule_end()
+
 target("aria2")
     add_rules("size_optimize")
     set_kind("$(kind)")
-    set_strip("all")
     add_files("deps/wslay/lib/*.c")
     
     for _, dir in ipairs(sourceDirs) do
@@ -343,7 +342,6 @@ rule_end()
 target("aria2c")
     add_rules("size_optimize")
     set_kind("binary") 
-    set_strip("all") -- 强制剥离所有符号
     
     if get_config("with_breakpad") then
         add_packages("breakpad")
