@@ -107,15 +107,34 @@ else
     set_configvar("ENABLE_PTHREAD", 1)
 end
 
--- 静态配置项变量
+-- 修改后的静态配置项变量
 local config_vars = {
     ENABLE_METALINK = 1, ENABLE_XML_RPC = 1, ENABLE_BITTORRENT = 1, ENABLE_SSL = 1,
-    HAVE_LIBCARES = 1, HAVE_LIBSSH2 = 1, HAVE_OPENSSL = 1, HAVE_EVP_SHA224 = 1,
-    HAVE_EVP_SHA256 = 1, HAVE_EVP_SHA384 = 1, HAVE_EVP_SHA512 = 1, HAVE_SQLITE3 = 1,
+    HAVE_LIBCARES = 1, HAVE_LIBSSH2 = 1, HAVE_SQLITE3 = 1,
     HAVE_SQLITE3_OPEN_V2 = 1, HAVE_LIBEXPAT = 1, HAVE_ZLIB = 1, HAVE_GZBUFFER = 1,
     HAVE_GZSETPARAMS = 1, ENABLE_WEBSOCKET = 1, ENABLE_ASYNC_DNS = 1,
     USE_INTERNAL_MD = 1, ENABLE_COMMONAD_DELTA_DEBUG = 1, ENABLE_NLS = 1
 }
+
+-- 根据平台和配置动态注入加密宏
+if ssl_external then
+    config_vars.HAVE_OPENSSL = 1
+    config_vars.HAVE_EVP_SHA224 = 1
+    config_vars.HAVE_EVP_SHA256 = 1
+    config_vars.HAVE_EVP_SHA384 = 1
+    config_vars.HAVE_EVP_SHA512 = 1
+else
+    if is_plat("windows", "mingw") then
+        config_vars.HAVE_WINCNG = 1 -- 启用 Windows 原生加密
+    else
+        config_vars.HAVE_OPENSSL = 1
+        config_vars.HAVE_EVP_SHA224 = 1
+        config_vars.HAVE_EVP_SHA256 = 1
+        config_vars.HAVE_EVP_SHA384 = 1
+        config_vars.HAVE_EVP_SHA512 = 1
+    end
+end
+
 for k, v in pairs(config_vars) do
     set_configvar(k, v)
 end
@@ -251,13 +270,16 @@ target("aria2")
     else
         if is_plat("windows", "mingw") then
             add_files("src/tls/wintls/*.cc")
-            add_syslinks("crypt32", "secur32")
+            add_files("src/crypto/wincng/*.cc") -- 编译 WinCNG 加密源文件
+            add_syslinks("crypt32", "secur32", "bcrypt") -- 必须链接 bcrypt 库
             set_configvar("SECURITY_WIN32", 1)
         elseif is_plat("macosx", "iphoneos") then
             add_files("src/tls/apple/*.cc")
+            add_files("src/crypto/libssl/*.cc") -- macOS 仍使用 libssl 加密（如未配置 CommonCrypto）
             add_frameworks("CoreFoundation", "Security")
+        else
+            add_files("src/crypto/libssl/*.cc")
         end
-        add_files("src/crypto/libssl/*.cc")
     end
 
     if get_config("uv") then
