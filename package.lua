@@ -1,6 +1,7 @@
 set_policy("package.install_only", true)
 
 add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
+
 add_requires(
     "expat",
     "zlib",
@@ -9,6 +10,9 @@ add_requires(
     "nonstd.string-view",
     "boost.intl"
 )
+
+add_requires("libressl")
+
 local ssl_external = get_config("ssl_external")
 if type(ssl_external) == "string" then
     ssl_external = (ssl_external == "y" or ssl_external == "yes" or ssl_external == "true")
@@ -16,17 +20,10 @@ elseif ssl_external == nil then
     ssl_external = is_plat("linux", "android", "bsd")
 end
 
-if ssl_external then
-    local ssl_name = get_config("use_quictls") and "quictls" or "libressl"
-    add_requires(ssl_name)
-    add_requires("ssh2", {configs = {[ssl_name] = true}})
+if is_plat("macosx", "iphoneos") and not ssl_external then
+    add_requires("libssh2", {configs = {crypto = "securetransport"}})
 else
-    if is_plat("windows", "mingw") then
-        add_requires("libssh2", {configs = {crypto = "wincng"}})
-    elseif is_plat("macosx", "iphoneos") then
-        add_requires("ssh2", {configs = {crypto = "securetransport"}})
-    end
-    -- 移除了在此处抛出错误的 else 分支，避免在配置初始化阶段引发崩溃
+    add_requires("libssh2", {configs = {crypto = "openssl"}})
 end
 
 if get_config("unit") then
