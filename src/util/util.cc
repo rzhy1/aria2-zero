@@ -64,6 +64,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
 
 #include "SimpleRandomizer.h"
 #include "File.h"
@@ -441,28 +442,56 @@ std::string torrentPercentEncode(const std::string& target)
   return torrentPercentEncode(
       reinterpret_cast<const unsigned char*>(target.c_str()), target.size());
 }
+std::string decodeURIComponent(std::string::const_iterator first,
+                               std::string::const_iterator last)
+{
+  std::string result;
+  result.reserve(std::distance(first, last)); // 预分配空间以提高效率
+
+  for (auto it = first; it != last; ++it) {
+    if (*it == '%') {
+      // 检查后面是否至少有两个字符
+      auto next1 = std::next(it);
+      auto next2 = std::next(next1);
+      if (next1 != last && next2 != last) {
+        char high = *next1;
+        char low = *next2;
+        // 验证是否为有效的十六进制字符
+        if (std::isxdigit(high) && std::isxdigit(low)) {
+          // 将十六进制字符转换为数值
+          int value = 0;
+          value += std::isdigit(high) ? (high - '0')
+                                      : (std::tolower(high) - 'a' + 10);
+          value *= 16;
+          value +=
+              std::isdigit(low) ? (low - '0') : (std::tolower(low) - 'a' + 10);
+          char decodedChar = static_cast<char>(value);
+          result.push_back(decodedChar);
+          it += 2; // 跳过已处理的两个十六进制字符
+          continue;
+        }
+      }
+      // 无效的 %xx 编码，保留原样
+      result.push_back(*it);
+    }
+    else {
+      result.push_back(*it);
+    }
+  }
+  return result;
+}
 
 std::string percentDecode(std::string::const_iterator first,
                           std::string::const_iterator last)
 {
-  std::string result;
-  for (; first != last; ++first) {
-    if (*first == '%') {
-      if (first + 1 != last && first + 2 != last && isHexDigit(*(first + 1)) &&
-          isHexDigit(*(first + 2))) {
-        result +=
-            hexCharToUInt(*(first + 1)) * 16 + hexCharToUInt(*(first + 2));
-        first += 2;
-      }
-      else {
-        result += *first;
-      }
-    }
-    else {
-      result += *first;
-    }
+  std::string decoded = decodeURIComponent(first, last);
+  if (decoded.find('%') == std::string::npos) {
+    return decoded;
   }
-  return result;
+  first = decoded.begin();
+  last = decoded.end();
+  decoded = decodeURIComponent(first, last);
+  return decoded;
 }
 
 std::string toHex(const unsigned char* src, size_t len)
@@ -2371,17 +2400,161 @@ void executeHookByOptName(const RequestGroup* group, const Option* option,
 
 std::string createSafePath(const std::string& dir, const std::string& filename)
 {
-  return util::applyDir(dir,
-                        util::isUtf8(filename)
-                            ? util::fixTaintedBasename(filename)
-                            : util::escapePath(util::percentEncode(filename)));
+  return util::applyDir(dir, createSafePath(filename));
+}
+
+std::string md5sum(const std::string& s)
+{
+  // 给 md5sum 方法，添加并发支持，因为在 createSafePath 方法中，可能会被多个线程调用
+  // 而 md5sum 方法中使用了静态变量 _md5，如果没有并发支持，就会导致线程安全问题。
+  static std::mutex md5_mutex;
+  std::lock_guard<std::mutex> lock(md5_mutex);
+  static std::unique_ptr<MessageDigest> _md5;
+  if (!_md5) {
+    _md5 = MessageDigest::create("md5");
+  }
+  _md5->reset();
+  _md5->update(s.c_str(), s.size());
+  return util::toHex(_md5->digest());
+}
+
+// 辅助函数：获取 UTF-8 字符的字节数
+inline int getUtf8CharLength(unsigned char c) {
+  if ((c & 0x80) == 0x00) return 1;  // 0xxxxxxx
+  if ((c & 0xE0) == 0xC0) return 2;  // 110xxxxx
+  if ((c & 0xF0) == 0xE0) return 3;  // 1110xxxx
+  if ((c & 0xF8) == 0xF0) return 4;  // 11110xxx
+  return 1;  // 无效字符，当作单字节处理
+}
+
+// 前缀分割：从开头取指定字节数，确保不截断字符
+std::string prefixByBytes(const std::string& s, int byteCount) {
+  if (byteCount <= 0 || s.empty()) return "";
+
+  int bytes = 0;
+  int pos = 0;
+  const int len = static_cast<int>(s.length());
+
+  while (pos < len && bytes < byteCount) {
+    unsigned char c = s[pos];
+    int charLen = getUtf8CharLength(c);
+
+    // 检查是否会超出字符串边界
+    if (pos + charLen > len) {
+      break;  // 不完整字符，停止
+    }
+
+    // 检查添加这个字符是否会超出字节限制
+    if (bytes + charLen > byteCount) {
+      break;  // 会超出，不添加这个字符
+    }
+
+    bytes += charLen;
+    pos += charLen;
+  }
+
+  return s.substr(0, pos);
+}
+
+// 后缀分割：从结尾取指定字节数，确保不截断字符
+std::string suffixByBytes(const std::string& s, int byteCount) {
+  if (byteCount <= 0 || s.empty()) return "";
+
+  int len = static_cast<int>(s.length());
+  if (byteCount >= len) return s;
+
+  int bytes = 0;
+  int pos = len;
+
+  // 从后向前扫描
+  while (pos > 0 && bytes < byteCount) {
+    // 找到当前字符的起始位置
+    int startPos = pos - 1;
+    while (startPos > 0 && (s[startPos] & 0xC0) == 0x80) {
+      startPos--;  // 向前找到字符起始字节
+    }
+
+    int charLen = getUtf8CharLength(static_cast<unsigned char>(s[startPos]));
+
+    // 检查添加这个字符是否会超出字节限制
+    if (bytes + charLen > byteCount) {
+      break;  // 会超出，不添加这个字符
+    }
+
+    bytes += charLen;
+    pos = startPos;
+  }
+  return s.substr(pos);
+}
+
+// 统一接口，direction: true=前缀, false=后缀
+std::string splitByBytes(const std::string& s, int byteCount, bool fromStart) {
+  if (fromStart) {
+    return prefixByBytes(s, byteCount);
+  } else {
+    return suffixByBytes(s, byteCount);
+  }
+}
+
+struct AnalyzeUtf8Info {
+  size_t charCount;      // Unicode 字符数（码点数）
+  size_t utf16Units;     // 对应的 UTF-16 code units 数（Windows 文件名限制用）
+};
+
+AnalyzeUtf8Info analyzeUtf8(const std::string& s) {
+  AnalyzeUtf8Info info{0, 0};
+  size_t i = 0;
+  const size_t len = s.size();
+
+  while (i < len) {
+    unsigned char c = s[i];
+    int charLen;
+    int utf16Len;
+
+    if ((c & 0x80) == 0x00) {          // ASCII
+      charLen = 1;
+      utf16Len = 1;
+      i += 1;
+    } else if ((c & 0xE0) == 0xC0) {   // 2-byte
+      charLen = 2;
+      utf16Len = 1;
+      i += 2;
+    } else if ((c & 0xF0) == 0xE0) {   // 3-byte
+      charLen = 3;
+      utf16Len = 1;
+      i += 3;
+    } else if ((c & 0xF8) == 0xF0) {   // 4-byte (需要代理对)
+      charLen = 4;
+      utf16Len = 2;  // 增补平面字符需要 2 个 UTF-16 code units
+      i += 4;
+    } else {
+      // 无效 UTF-8，按单字节处理
+      charLen = 1;
+      utf16Len = 1;
+      i += 1;
+    }
+
+    info.charCount++;
+    info.utf16Units += utf16Len;
+  }
+  return info;
 }
 
 std::string createSafePath(const std::string& filename)
 {
-  return util::isUtf8(filename)
+  auto out = util::isUtf8(filename)
              ? util::fixTaintedBasename(filename)
              : util::escapePath(util::percentEncode(filename));
+#ifdef _WIN32
+  // windows has a limit of 255 chars for path components, and we need to reserve
+  // some space for the escaping. So we limit to 250 chars here.
+  auto info = analyzeUtf8(out);
+  if (info.utf16Units > 250) {
+    // 修改一下，支持 utf8 字符分割，直接截断可能会导致乱码，所以我们保留前 64 个字节和后 12 个字节（尽量保留最后的字符），中间用 md5sum 进行替换，这样既能保证路径的唯一性，又能避免乱码问题。
+    out = prefixByBytes(out, 64) + "~" + md5sum(out) + "~" + suffixByBytes(out, 12);
+  }
+#endif // _WIN32
+  return out;
 }
 
 std::string encodeNonUtf8(const std::string& s)

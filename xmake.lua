@@ -476,4 +476,14 @@ target("test")
     add_tests("default")
     add_defines("HAVE_CONFIG_H=1")
 target_end()
+
+target("main")
+    set_default(false)
+    add_deps("aria2")
+    add_defines("HAVE_CONFIG_H=1")
+    add_files("main.cc")
+    if is_plat("windows", "mingw") then
+        add_files("src/resource.rc")
+    end
+target_end()
 end

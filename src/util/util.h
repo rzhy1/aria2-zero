@@ -895,6 +895,9 @@ void commonFileEntrySetPath(const std::shared_ptr<FileEntry>& fileEntry,
 
 std::string getProgramLocation();
 
+std::string decodeURIComponent(std::string::const_iterator first,
+                               std::string::const_iterator last);
+
 } // namespace util
 
 } // namespace aria2

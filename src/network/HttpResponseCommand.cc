@@ -190,7 +190,7 @@ bool HttpResponseCommand::executeInternal()
       // URI.  This is the file we used to get modified date.
       auto& file = getRequest()->getFile();
       auto suffixPath = util::createSafePath(
-          getRequest()->getFile().empty()
+          file.empty()
               ? Request::DEFAULT_FILE
               : util::percentDecode(std::begin(file), std::end(file)));
       util::commonFileEntrySetPath(fe, getOption(), suffixPath, true);
