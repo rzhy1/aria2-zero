@@ -237,7 +237,7 @@ std::shared_ptr<RequestGroup>
 createBtMagnetRequestGroup(const std::string& magnetLink,
                            const std::shared_ptr<Option>& optionTemplate)
 {
-  auto dctx = std::make_shared<DownloadContext>(METADATA_PIECE_SIZE, 0);
+  auto dctx = std::make_shared<DownloadContext>(static_cast<int32_t>(METADATA_PIECE_SIZE), 0);
 
   // We only know info hash. Total Length is unknown at this moment.
   dctx->markTotalLengthIsUnknown();

@@ -319,7 +319,7 @@ void extractPeer(const ValueBase* peerData, int family, OutputIterator dest)
         if (!ip || !port || !(0 < port->i() && port->i() < 65536)) {
           continue;
         }
-        *dest_ = std::make_shared<Peer>(ip->s(), port->i());
+        *dest_ = std::make_shared<Peer>(ip->s(), static_cast<uint16_t>(port->i()));
         ++dest_;
       }
     }

@@ -407,7 +407,7 @@ void extractNodes(TorrentAttribute* torrent, const ValueBase* nodesListSrc)
       if (!port || !(0 < port->i() && port->i() < 65536)) {
         continue;
       }
-      torrent->nodes.push_back(std::make_pair(utf8Hostname, port->i()));
+      torrent->nodes.push_back(std::make_pair(utf8Hostname, static_cast<uint16_t>(port->i())));
     }
   }
 }
