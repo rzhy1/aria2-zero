@@ -34,11 +34,11 @@ jobs:
           Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true
           Write-Host "已关闭 Windows Defender 功能！"
           
-      - name: Instantly clean up known system OpenSSL locations
+      - name: Clean up system OpenSSL to prevent linker pollution
         shell: pwsh
         run: |
           $knownPaths = @(
-              # 虚拟机内置 OpenSSL 深度嵌套目录
+              # 1. 虚拟机内置 OpenSSL 深度嵌套目录
               "C:\Program Files\OpenSSL\lib\VC\x64\MD\libcrypto.lib",
               "C:\Program Files\OpenSSL\lib\VC\x64\MD\libssl.lib",
               "C:\Program Files\OpenSSL\lib\VC\x64\MDd\libcrypto.lib",
@@ -48,15 +48,21 @@ jobs:
               "C:\Program Files\OpenSSL\lib\VC\x64\MTd\libcrypto.lib",
               "C:\Program Files\OpenSSL\lib\VC\x64\MTd\libssl.lib",
               
-              # Miniconda 的全局库干扰
+              # 2. [新增] 彻底切断 Git for Windows 携带的 3.6.0b 静态库干扰！
+              "C:\Program Files\Git\mingw64\lib\libcrypto.a",
+              "C:\Program Files\Git\mingw64\lib\libssl.a",
+              "C:\Program Files\Git\mingw64\lib\libcrypto.dll.a",
+              "C:\Program Files\Git\mingw64\lib\libssl.dll.a",
+              
+              # 3. Miniconda 的全局库干扰
               "C:\Miniconda\Library\lib\libcrypto.lib",
               "C:\Miniconda\Library\lib\libssl.lib",
               
-              # PostgreSQL 数据库的静态库干扰
+              # 4. PostgreSQL 数据库的静态库干扰
               "C:\Program Files\PostgreSQL\14\lib\libcrypto.lib",
               "C:\Program Files\PostgreSQL\14\lib\libssl.lib",
               
-              # 虚拟机 PyPy 环境干扰
+              # 5. 虚拟机 PyPy 环境干扰
               "C:\hostedtoolcache\windows\PyPy\2.7.18\x86\tcl\libcrypto.lib",
               "C:\hostedtoolcache\windows\PyPy\2.7.18\x86\tcl\libssl.lib",
               "C:\hostedtoolcache\windows\PyPy\3.10.16\x86\tcl\libcrypto.lib",
