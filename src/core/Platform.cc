@@ -93,19 +93,9 @@ void gnutls_log_callback(int level, const char* str)
 bool Platform::initialized_ = false;
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-
-default_provider_ = OSSL_PROVIDER_load(nullptr, "default");
-if (!default_provider_) {
-  throw DL_ABORT_EX("OSSL_PROVIDER_load 'default' failed.");
-}
-
-legacy_provider_ = OSSL_PROVIDER_load(nullptr, "legacy");
-
-if (!legacy_provider_) {
-  std::cerr << "Warning: OpenSSL legacy provider not found." << std::endl;
-}
-
-#endif
+OSSL_PROVIDER* Platform::legacy_provider_ = nullptr;
+OSSL_PROVIDER* Platform::default_provider_ = nullptr;
+#endif // OPENSSL_VERSION_NUMBER >= 0x30000000L
 
 Platform::Platform() { setUp(); }
 
@@ -141,7 +131,8 @@ bool Platform::setUp()
   // RC4 is in the legacy provider.
   legacy_provider_ = OSSL_PROVIDER_load(nullptr, "legacy");
   if (!legacy_provider_) {
-    throw DL_ABORT_EX("OSSL_PROVIDER_load 'legacy' failed.");
+    // 将原本致命的 throw 逻辑修改为日志警告，防止静态编译单文件因找不到外部 legacy.dll 启动崩溃
+    A2_LOG_WARN("OSSL_PROVIDER_load 'legacy' failed. Legacy ciphers (like RC4) will be unavailable.");
   }
 
   default_provider_ = OSSL_PROVIDER_load(nullptr, "default");
