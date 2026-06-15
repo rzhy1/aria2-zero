@@ -111,40 +111,60 @@ jobs:
           xmake require --info openssl3
           xmake require --info libssh2
 
-          Write-Host "================== [ 诊断阶段 2: 查找并解析 opensslv.h 头文件 ] =================="
+          Write-Host "================== [ 诊断阶段 2: 查找并解析工作区 opensslv.h 头文件 ] =================="
           $opensslvHeaders = Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse -Filter "opensslv.h" -ErrorAction SilentlyContinue
           if ($opensslvHeaders) {
               foreach ($header in $opensslvHeaders) {
-                  Write-Host "找到头文件: $($header.FullName)"
+                  Write-Host "找到工作区解压头文件: $($header.FullName)"
                   Get-Content $header.FullName | Select-String "OPENSSL_VERSION_TEXT", "OPENSSL_VERSION_STR", "OPENSSL_VERSION_MAJOR"
               }
+          } else {
+              Write-Host "未在工作区找到 opensslv.h"
           }
 
-          Write-Host "================== [ 诊断阶段 3: 提取 libcrypto.lib 二进制硬编码版本号 ] =================="
+          Write-Host "================== [ 诊断阶段 3: 提取 Xmake 下载的 libcrypto.lib 二进制版本号 ] =================="
           $libcryptoLibs = Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse -Filter "libcrypto.lib" -ErrorAction SilentlyContinue
           if ($libcryptoLibs) {
               foreach ($lib in $libcryptoLibs) {
-                  Write-Host "找到静态库: $($lib.FullName)"
+                  Write-Host "找到工作区静态库: $($lib.FullName)"
+                  # 扫描二进制文件，提取硬编码的 OpenSSL 版本文本
                   $versionMatch = Select-String -Path $lib.FullName -Pattern "OpenSSL\s+3\.[0-9a-zA-Z\.\-]+" -AllMatches -ErrorAction SilentlyContinue
                   if ($versionMatch) {
-                      $versionMatch.Matches | ForEach-Object { Write-Host "  -> 二进制内嵌版本字符串: $($_.Value)" }
+                      $versionMatch.Matches | ForEach-Object { Write-Host "  -> 该静态库内嵌二进制版本串: $($_.Value)" }
                   }
+              }
+          } else {
+              Write-Host "未在工作区找到 libcrypto.lib"
+          }
+
+          Write-Host "================== [ 诊断阶段 4: 实时探测并分析虚拟机隐藏路径中的 libcrypto.lib ] =================="
+          # 列出所有可能在虚拟机深处对链接器造成污染的物理路径
+          $suspectPaths = @(
+              "C:\Program Files\OpenSSL\lib\VC\x64\MT\libcrypto.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MTd\libcrypto.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MD\libcrypto.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MDd\libcrypto.lib",
+              "C:\Miniconda\Library\lib\libcrypto.lib",
+              "C:\Program Files\PostgreSQL\14\lib\libcrypto.lib"
+          )
+          foreach ($path in $suspectPaths) {
+              if (Test-Path $path) {
+                  Write-Host "⚠️ 警告：检测到虚拟机系统级库未被屏蔽: $path"
+                  # 核心亮点：直接去提取这个系统文件的真实硬编码版本号！
+                  $sysVersionMatch = Select-String -Path $path -Pattern "OpenSSL\s+3\.[0-9a-zA-Z\.\-]+" -AllMatches -ErrorAction SilentlyContinue
+                  if ($sysVersionMatch) {
+                      $sysVersionMatch.Matches | ForEach-Object { Write-Host "  -> 该系统隐藏库的真实物理版本为: $($_.Value)" }
+                  }
+              } else {
+                  Write-Host "安全：未发现路径 $path（已成功重命名屏蔽或不存在）"
               }
           }
 
-          Write-Host "================== [ 诊断阶段 4: 提取 libssh2.lib 二进制内嵌符号 ] =================="
-          $libssh2Libs = Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse -Filter "libssh2.lib" -ErrorAction SilentlyContinue
-          if ($libssh2Libs) {
-              foreach ($lib in $libssh2Libs) {
-                  Write-Host "找到 libssh2 静态库: $($lib.FullName)"
-                  $versionMatch = Select-String -Path $lib.FullName -Pattern "OpenSSL\s+3\.[0-9a-zA-Z\.\-]+" -AllMatches -ErrorAction SilentlyContinue
-                  if ($versionMatch) {
-                      $versionMatch.Matches | ForEach-Object { Write-Host "  -> 内嵌 OpenSSL 关联版本: $($_.Value)" }
-                  } else {
-                      Write-Host "  -> 此 libssh2 库中未检测到内嵌的 OpenSSL 版本特征串"
-                  }
-              }
-          }
+          Write-Host "================== [ 诊断阶段 5: 检查 MSVC 链接器环境变量污染 ] =================="
+          Write-Host "PATH 环境变量中的 OpenSSL 干扰:"
+          where.exe openssl 2>$null
+          Write-Host "当前执行环境的 PATH:"
+          Write-Host "$env:PATH"
 
           New-Item -ItemType Directory -Force -Path "staging"
           $targetExe = Get-ChildItem -Recurse -Filter "aria2c.exe" | Select-Object -First 1
