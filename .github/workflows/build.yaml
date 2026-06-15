@@ -34,21 +34,34 @@ jobs:
           Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true
           Write-Host "已关闭 Windows Defender 功能！"
 
-      - name: Clean up system OpenSSL to prevent linker pollution
+      - name: Deep scan and clean up all hidden system libcrypto.lib on VM
         shell: pwsh
         run: |
-          if (Test-Path "C:\Program Files\OpenSSL") {
-              Rename-Item "C:\Program Files\OpenSSL" "C:\Program Files\OpenSSL_Backup" -Force
-              Write-Host "已成功重命名 C:\Program Files\OpenSSL"
-          }
-          if (Test-Path "C:\Program Files\OpenSSL-Win64") {
-              Rename-Item "C:\Program Files\OpenSSL-Win64" "C:\Program Files\OpenSSL-Win64_Backup" -Force
-              Write-Host "已成功重命名 C:\Program Files\OpenSSL-Win64"
-          }
-          if (Test-Path "C:\vcpkg\installed\x64-windows\lib\libcrypto.lib") {
-              Remove-Item "C:\vcpkg\installed\x64-windows\lib\libcrypto.lib" -Force
-              Remove-Item "C:\vcpkg\installed\x64-windows\lib\libssl.lib" -Force
-              Write-Host "已清理 vcpkg 中的 OpenSSL 库干扰"
+          $workspace = "$env:GITHUB_WORKSPACE"
+          Write-Host "正在扫描 C 盘深处的系统级 libcrypto.lib 和 libssl.lib..."
+          $cFiles = Get-ChildItem -Path "C:\" -Include "libcrypto.lib", "libssl.lib" -Recurse -ErrorAction SilentlyContinue
+          
+          Write-Host "正在扫描 D 盘深处的系统级库（排除当前工作空间）..."
+          $dFiles = Get-ChildItem -Path "D:\" -Include "libcrypto.lib", "libssl.lib" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike "*$workspace*" }
+          
+          # 合并扫描结果
+          $allSystemLibs = $cFiles + $dFiles
+          
+          if ($allSystemLibs) {
+              Write-Host "================ [ 发现隐藏的系统级库 ] ================"
+              $allSystemLibs | ForEach-Object { Write-Host "隐藏路径: $_.FullName" }
+              
+              Write-Host "================ [ 开始执行物理重命名 ] ================"
+              foreach ($file in $allSystemLibs) {
+                  try {
+                      Rename-Item -Path $file.FullName -NewName ($file.Name + ".bak") -Force -ErrorAction SilentlyContinue
+                      Write-Host "屏蔽成功: $($file.FullName) -> $($file.FullName).bak"
+                  } catch {
+                      Write-Host "屏蔽失败 $($file.FullName): $_"
+                  }
+              }
+          } else {
+              Write-Host "没有在系统盘深处找到任何冲突的静态库文件。"
           }
           
       - name: Modify source files
