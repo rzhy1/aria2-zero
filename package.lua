@@ -1,4 +1,4 @@
-set_policy("package.install_only", true) 
+set_policy("package.install_only", false) 
 
 add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
 
@@ -17,7 +17,8 @@ local ssl_external = (ssl_provider ~= "wintls")
 
 -- 2. 根部显式引入对应的依赖包
 if ssl_provider == "openssl" then
-    add_requires("openssl3")
+    -- add_requires("openssl3")
+    add_requires("builtin-repo::openssl3 4.0.1", {build = true})
 elseif ssl_provider == "quictls" then
     add_requires("quictls")
 elseif ssl_provider == "libressl" then
