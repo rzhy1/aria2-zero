@@ -1,4 +1,4 @@
-set_policy("package.install_only", false) 
+set_policy("package.install_only", true) 
 
 add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
 
@@ -27,12 +27,12 @@ elseif ssl_provider == "wintls" then
 end
 
 -- 3. 配置 libssh2 依赖（彻底移除未知参数 require_pack，解决警告和冲突问题）
-if is_plat("macosx", "iphoneos") and not ssl_external then
-    add_requires("libssh2", {configs = {crypto = "securetransport"}})
-else
-    add_requireconfs("libssh2", {install = "source"})
-    add_requires("libssh2", {configs = {crypto = "openssl"}})
-end
+--if is_plat("macosx", "iphoneos") and not ssl_external then
+--    add_requires("libssh2", {configs = {crypto = "securetransport"}})
+--else
+--    add_requireconfs("libssh2", {install = "source"})
+--    add_requires("libssh2", {configs = {crypto = "openssl"}})
+--end
 
 if get_config("unit") then
     add_requires("cppunit", {optional = true})
