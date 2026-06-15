@@ -28,10 +28,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Debug - View package.lua on CI
-        shell: pwsh
+      - name: Install NASM and Strawberry Perl via Chocolatey
         run: |
-          Get-Content package.lua
+          choco install nasm strawberryperl -y
 
       - name: Disable Windows Defender
         shell: pwsh
