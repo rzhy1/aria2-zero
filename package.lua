@@ -33,7 +33,7 @@ if is_plat("macosx", "iphoneos") and not ssl_external then
     add_requires("libssh2", {configs = {crypto = "securetransport"}})
 else
     if ssl_provider == "openssl" then
-        add_requires("libssh2", {configs = {crypto = "openssl"}, require_pack = "builtin-repo::openssl"})
+        add_requires("libssh2", {configs = {crypto = "openssl"}, require_pack = "builtin-repo::openssl3"})
     else
         add_requires("libssh2", {configs = {crypto = "openssl"}})
     end
