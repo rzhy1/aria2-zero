@@ -17,13 +17,12 @@ local ssl_external = (ssl_provider ~= "wintls")
 
 -- 2. 根部显式引入对应的依赖包
 if ssl_provider == "openssl" then
-    add_requires("openssl") 
+    add_requires("builtin-repo::openssl") 
 elseif ssl_provider == "quictls" then
     add_requires("quictls")
 elseif ssl_provider == "libressl" then
     add_requires("libressl")
 elseif ssl_provider == "wintls" then
-    -- wintls 模式下，底层算法库指定搭配 libressl
     add_requires("libressl")
 end
 
