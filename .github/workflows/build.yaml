@@ -53,6 +53,21 @@ jobs:
         run: |
           # 重新配置并执行编译
           xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} -c -y
+          Write-Host "========== 1 =========="
+          xrepo list
+          Write-Host "========== 2 =========="
+          where.exe openssl
+          Get-Command openssl -ErrorAction SilentlyContinue | Format-List *
+          Write-Host "========== 3 =========="
+          $openssl = (Get-Command openssl -ErrorAction SilentlyContinue)
+          if ($openssl) {
+              Write-Host "OpenSSL command:"
+              & $openssl.Source version -a
+          }
+          Write-Host "========== 4 =========="
+          xmake require --info openssl3
+
+          
           xmake -j4 -y
           
           # 创建独立的暂存文件夹以供打包
