@@ -1,8 +1,7 @@
-set_policy("package.install_only", false) 
+set_policy("package.install_only", true) -- 启用免编译策略，节省时间
 
 add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
- 
-package_end()
+
 add_requires(
     "expat",
     "zlib",
@@ -18,7 +17,8 @@ local ssl_external = (ssl_provider ~= "wintls")
 
 -- 2. 根部显式引入对应的依赖包
 if ssl_provider == "openssl" then
-    add_requires("builtin-repo::openssl3") 
+    -- 强制使用有 100% 预编译二进制支持的 3.0.x LTS 版本，确保 2 秒内直接解压安装
+    add_requires("builtin-repo::openssl3 3.0.x") 
 elseif ssl_provider == "quictls" then
     add_requires("quictls")
 elseif ssl_provider == "libressl" then
@@ -28,15 +28,11 @@ elseif ssl_provider == "wintls" then
     add_requires("libressl")
 end
 
--- 3. 配置 libssh2 依赖
+-- 3. 配置 libssh2 依赖（彻底移除未知参数 require_pack，解决警告和冲突问题）
 if is_plat("macosx", "iphoneos") and not ssl_external then
     add_requires("libssh2", {configs = {crypto = "securetransport"}})
 else
-    if ssl_provider == "openssl" then
-        add_requires("libssh2", {configs = {crypto = "openssl"}, require_pack = "builtin-repo::openssl3"})
-    else
-        add_requires("libssh2", {configs = {crypto = "openssl"}})
-    end
+    add_requires("libssh2", {configs = {crypto = "openssl"}})
 end
 
 if get_config("unit") then
