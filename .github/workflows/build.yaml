@@ -34,6 +34,57 @@ jobs:
           Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true
           Write-Host "已关闭 Windows Defender 功能！"
           
+      - name: Instantly clean up known system OpenSSL locations
+        shell: pwsh
+        run: |
+          $knownPaths = @(
+              # 虚拟机内置 OpenSSL 深度嵌套目录
+              "C:\Program Files\OpenSSL\lib\VC\x64\MD\libcrypto.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MD\libssl.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MDd\libcrypto.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MDd\libssl.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MT\libcrypto.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MT\libssl.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MTd\libcrypto.lib",
+              "C:\Program Files\OpenSSL\lib\VC\x64\MTd\libssl.lib",
+              
+              # Miniconda 的全局库干扰
+              "C:\Miniconda\Library\lib\libcrypto.lib",
+              "C:\Miniconda\Library\lib\libssl.lib",
+              
+              # PostgreSQL 数据库的静态库干扰
+              "C:\Program Files\PostgreSQL\14\lib\libcrypto.lib",
+              "C:\Program Files\PostgreSQL\14\lib\libssl.lib",
+              
+              # 虚拟机 PyPy 环境干扰
+              "C:\hostedtoolcache\windows\PyPy\2.7.18\x86\tcl\libcrypto.lib",
+              "C:\hostedtoolcache\windows\PyPy\2.7.18\x86\tcl\libssl.lib",
+              "C:\hostedtoolcache\windows\PyPy\3.10.16\x86\tcl\libcrypto.lib",
+              "C:\hostedtoolcache\windows\PyPy\3.10.16\x86\tcl\libssl.lib",
+              "C:\hostedtoolcache\windows\PyPy\3.7.13\x86\tcl\libcrypto.lib",
+              "C:\hostedtoolcache\windows\PyPy\3.7.13\x86\tcl\libssl.lib",
+              "C:\hostedtoolcache\windows\PyPy\3.8.16\x86\tcl\libcrypto.lib",
+              "C:\hostedtoolcache\windows\PyPy\3.8.16\x86\tcl\libssl.lib",
+              "C:\hostedtoolcache\windows\PyPy\3.9.19\x86\tcl\libcrypto.lib",
+              "C:\hostedtoolcache\windows\PyPy\3.9.19\x86\tcl\libssl.lib"
+          )
+          
+          Write-Host "开始对已知系统 OpenSSL 路径进行精准屏蔽（耗时 < 0.1 秒）..."
+          
+          $foundCount = 0
+          foreach ($path in $knownPaths) {
+              if (Test-Path $path) {
+                  $foundCount++
+                  try {
+                      Rename-Item -Path $path -NewName ((Split-Path $path -Leaf) + ".bak") -Force -ErrorAction SilentlyContinue
+                      Write-Host "成功屏蔽: $path -> $path.bak"
+                  } catch {
+                      Write-Host "屏蔽失败 $path : $_"
+                  }
+              }
+          }
+          Write-Host "系统屏蔽阶段执行完毕。共屏蔽 $foundCount 个冲突文件。"
+          
       - name: Modify source files
         shell: pwsh
         run: |
@@ -51,12 +102,11 @@ jobs:
       - name: Compile Windows version (${{ matrix.ssl }})
         shell: pwsh
         run: |
-          # 重新配置并执行编译
           xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} -c -y
-          # =========================================================================
-          # [升级版深度诊断系统]
-          # 将对当前构建环境、二进制库、头文件和链接器进行全方位的排查，并在日志中输出
-          # =========================================================================
+          xmake -j4 -y
+          # ==========================================================
+          # 深度诊断：在编译成功后，所有的依赖包物理安装完毕后执行
+          # ==========================================================
           Write-Host "================== [ 诊断阶段 1: 检查 Xmake 依赖包物理路径 ] =================="
           xmake require --info openssl3
           xmake require --info libssh2
@@ -68,8 +118,6 @@ jobs:
                   Write-Host "找到头文件: $($header.FullName)"
                   Get-Content $header.FullName | Select-String "OPENSSL_VERSION_TEXT", "OPENSSL_VERSION_STR", "OPENSSL_VERSION_MAJOR"
               }
-          } else {
-              Write-Host "未在工作区找到 opensslv.h"
           }
 
           Write-Host "================== [ 诊断阶段 3: 提取 libcrypto.lib 二进制硬编码版本号 ] =================="
@@ -77,16 +125,11 @@ jobs:
           if ($libcryptoLibs) {
               foreach ($lib in $libcryptoLibs) {
                   Write-Host "找到静态库: $($lib.FullName)"
-                  # 扫描二进制文件，提取硬编码的 OpenSSL 版本文本 (例如 'OpenSSL 3.6.2' 或 'OpenSSL 3.6.0b')
                   $versionMatch = Select-String -Path $lib.FullName -Pattern "OpenSSL\s+3\.[0-9a-zA-Z\.\-]+" -AllMatches -ErrorAction SilentlyContinue
                   if ($versionMatch) {
                       $versionMatch.Matches | ForEach-Object { Write-Host "  -> 二进制内嵌版本字符串: $($_.Value)" }
-                  } else {
-                      Write-Host "  -> 未能在二进制中找到标准的 OpenSSL 版本特征串"
                   }
               }
-          } else {
-              Write-Host "未在工作区找到 libcrypto.lib"
           }
 
           Write-Host "================== [ 诊断阶段 4: 提取 libssh2.lib 二进制内嵌符号 ] =================="
@@ -101,23 +144,9 @@ jobs:
                       Write-Host "  -> 此 libssh2 库中未检测到内嵌的 OpenSSL 版本特征串"
                   }
               }
-          } else {
-              Write-Host "未在工作区找到 libssh2.lib"
           }
 
-          Write-Host "================== [ 诊断阶段 5: 检查 MSVC 链接器环境变量污染 ] =================="
-          Write-Host "LIB 环境变量 (链接器库文件搜索目录):"
-          Write-Host "$env:LIB"
-          Write-Host "PATH 环境变量 (系统工具搜索目录):"
-          Write-Host "$env:PATH"
-          # =========================================================================
-
-          
-          xmake -j4 -y
-          
-          # 创建独立的暂存文件夹以供打包
           New-Item -ItemType Directory -Force -Path "staging"
-          
           $targetExe = Get-ChildItem -Recurse -Filter "aria2c.exe" | Select-Object -First 1
           if ($targetExe) {
               $newName = "aria2c0-${{ matrix.ssl }}.exe"
@@ -128,7 +157,6 @@ jobs:
               exit 1
           }
 
-      # 只有当前编译成功，才会上传临时二进制 (保留 1 天)
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v7
         with:
