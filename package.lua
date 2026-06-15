@@ -1,4 +1,4 @@
-set_policy("package.install_only", true)
+set_policy("package.install_only", false) 
 
 add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
  
