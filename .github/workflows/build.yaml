@@ -48,6 +48,10 @@ jobs:
         with:
           xmake-version: latest
           
+      - name: Update xmake repository index
+        run: |
+          xmake repo -u
+          
       - name: Compile Windows version (${{ matrix.ssl }})
         shell: pwsh
         run: |
