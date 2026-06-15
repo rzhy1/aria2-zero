@@ -269,7 +269,7 @@ target("aria2")
 
     -- 确定需要依赖并链接的底层加密/SSL库
     if ssl_provider == "openssl" then
-        add_packages("openssl", {public = true})
+        add_packages("openssl3", {public = true})
     elseif ssl_provider == "quictls" then
         add_packages("quictls", {public = true})
     elseif ssl_provider == "libressl" then
