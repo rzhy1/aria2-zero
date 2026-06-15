@@ -48,11 +48,11 @@ jobs:
               "C:\Program Files\OpenSSL\lib\VC\x64\MTd\libcrypto.lib",
               "C:\Program Files\OpenSSL\lib\VC\x64\MTd\libssl.lib",
               
-              # 2. [新增] 彻底切断 Git for Windows 携带的 3.6.0b 静态库干扰！
-              "C:\Program Files\Git\mingw64\lib\libcrypto.a",
-              "C:\Program Files\Git\mingw64\lib\libssl.a",
-              "C:\Program Files\Git\mingw64\lib\libcrypto.dll.a",
-              "C:\Program Files\Git\mingw64\lib\libssl.dll.a",
+              # 2. [新增] 彻底切断草莓 Perl 携带的 3.6.0b 静态库干扰！
+              "C:\Strawberry\c\lib\libcrypto.a",
+              "C:\Strawberry\c\lib\libssl.a",
+              "C:\Strawberry\c\lib\libcrypto.dll.a",
+              "C:\Strawberry\c\lib\libssl.dll.a",
               
               # 3. Miniconda 的全局库干扰
               "C:\Miniconda\Library\lib\libcrypto.lib",
