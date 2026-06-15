@@ -30,6 +30,7 @@ end
 if is_plat("macosx", "iphoneos") and not ssl_external then
     add_requires("libssh2", {configs = {crypto = "securetransport"}})
 else
+    add_requireconfs("libssh2", {install = "source"})
     add_requires("libssh2", {configs = {crypto = "openssl"}})
 end
 
