@@ -28,6 +28,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Debug - View package.lua on CI
+        shell: pwsh
+        run: |
+          Get-Content package.lua
+
       - name: Disable Windows Defender
         shell: pwsh
         run: |
