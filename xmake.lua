@@ -2,22 +2,17 @@ includes("@builtin/check")
 includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
 
+option("ssl_provider")
+    set_default("quictls")
+    set_showmenu(true)
+    set_description("Choose SSL provider: openssl, quictls, libressl, wintls")
+    set_values("openssl", "quictls", "libressl", "wintls")
+option_end()
+
 option("uv")
     set_default(false)
     set_showmenu(true)
     set_description("Use external uv library")
-option_end()
-
-option("ssl_external")
-    set_default(false)
-    set_showmenu(true)
-    set_description("Use external ssl library")
-option_end()
-
-option("use_quictls")
-    set_default(true)
-    set_showmenu(true)
-    set_description("Use quictls instead of libressl")
 option_end()
 
 option("with_breakpad")
@@ -32,20 +27,9 @@ option("unit")
     set_description("Build unit test")
 option_end()
 
--- 统一配置项解析
-local ssl_external = get_config("ssl_external")
-if type(ssl_external) == "string" then
-    ssl_external = (ssl_external == "y" or ssl_external == "yes" or ssl_external == "true")
-elseif ssl_external == nil then
-    ssl_external = is_plat("linux", "android", "bsd")
-end
-
-local use_quictls = get_config("use_quictls")
-if type(use_quictls) == "string" then
-    use_quictls = (use_quictls == "y" or use_quictls == "yes" or use_quictls == "true")
-elseif use_quictls == nil then
-    use_quictls = true
-end
+-- 解析 SSL 提供者
+local ssl_provider = get_config("ssl_provider") or "quictls"
+local ssl_external = (ssl_provider ~= "wintls")   -- wintls 为 false，其余为 true
 
 includes("package.lua")
 set_languages("c++14")
@@ -115,13 +99,13 @@ else
     set_configvar("ENABLE_PTHREAD", 1)
 end
 
--- 静态配置项变量
+-- 静态配置项变量（因为均需要借用 OpenSSL/LibreSSL API 提供底层 Crypto，故全局定义 HAVE_OPENSSL）
 local config_vars = {
     ENABLE_METALINK = 1, ENABLE_XML_RPC = 1, ENABLE_BITTORRENT = 1, ENABLE_SSL = 1,
-    HAVE_LIBCARES = 1, HAVE_LIBSSH2 = 1, HAVE_OPENSSL = 1, HAVE_EVP_SHA224 = 1,
-    HAVE_EVP_SHA256 = 1, HAVE_EVP_SHA384 = 1, HAVE_EVP_SHA512 = 1, HAVE_SQLITE3 = 1,
-    HAVE_SQLITE3_OPEN_V2 = 1, HAVE_LIBEXPAT = 1, HAVE_ZLIB = 1, HAVE_GZBUFFER = 1,
-    HAVE_GZSETPARAMS = 1, ENABLE_WEBSOCKET = 1, ENABLE_ASYNC_DNS = 1,
+    HAVE_LIBCARES = 1, HAVE_LIBSSH2 = 1, HAVE_OPENSSL = 1,
+    HAVE_EVP_SHA224 = 1, HAVE_EVP_SHA256 = 1, HAVE_EVP_SHA384 = 1, HAVE_EVP_SHA512 = 1,
+    HAVE_SQLITE3 = 1, HAVE_SQLITE3_OPEN_V2 = 1, HAVE_LIBEXPAT = 1, HAVE_ZLIB = 1,
+    HAVE_GZBUFFER = 1, HAVE_GZSETPARAMS = 1, ENABLE_WEBSOCKET = 1, ENABLE_ASYNC_DNS = 1,
     USE_INTERNAL_MD = 1, ENABLE_COMMONAD_DELTA_DEBUG = 1, ENABLE_NLS = 1
 }
 
@@ -270,26 +254,28 @@ target("aria2")
 
     -- SSL 模块选择逻辑
     if ssl_external then
-        -- 外部 TLS 模式
+        -- 外部 TLS 模式（TLS 与 Crypto 底层均采用选定的外部库）
         add_files("src/tls/libssl/*.cc", "src/crypto/libssl/*.cc")
     else
-        -- 系统 TLS 模式 (SChannel 或 Apple SecureTransport)
+        -- 系统 TLS 模式 (SChannel) 
         if is_plat("windows", "mingw") then
             add_files("src/tls/wintls/*.cc")
             add_syslinks("crypt32", "secur32")
             set_configvar("SECURITY_WIN32", 1)
-        elseif is_plat("macosx", "iphoneos") then
-            add_files("src/tls/apple/*.cc")
-            add_frameworks("CoreFoundation", "Security")
         end
-        -- 混合模式下，底层加密算法依然需要链接到指定的外部加密库
+        -- 底层加密算法（Crypto）依然需要链接到指定的外部加密库
         add_files("src/crypto/libssl/*.cc")
     end
 
-    -- 统一链接根据配置选择的加密库
-    if use_quictls then
+    -- 确定需要依赖并链接的底层加密/SSL库
+    if ssl_provider == "openssl" then
+        add_packages("openssl", {public = true})
+    elseif ssl_provider == "quictls" then
         add_packages("quictls", {public = true})
-    else
+    elseif ssl_provider == "libressl" then
+        add_packages("libressl", {public = true})
+    elseif ssl_provider == "wintls" then
+        -- wintls 模式下，TLS 采用 SChannel，但 Crypto 算法组件搭配 libressl 提供底层哈希支持
         add_packages("libressl", {public = true})
     end
 
