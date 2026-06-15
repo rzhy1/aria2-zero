@@ -52,7 +52,7 @@ jobs:
         shell: pwsh
         run: |
           # 重新配置并执行编译
-          xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} -c -y
+          xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} --vs_runtime=MT --kind=static -c -y
           xmake -j4 -y
           
           # 创建独立的暂存文件夹以供打包
