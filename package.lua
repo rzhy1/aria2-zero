@@ -1,4 +1,4 @@
-set_policy("package.install_only", true) -- 启用免编译策略，节省时间
+set_policy("package.install_only", false) -- 启用免编译策略，节省时间
 
 add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
 
