@@ -1,7 +1,10 @@
 set_policy("package.install_only", true)
 
 add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
-
+package("openssl")
+    add_urls("https://github.com/openssl/openssl/releases/download/openssl-4.0.1/openssl-4.0.1.tar.gz")
+    add_versions("4.0.1", "2db3f3a0d6ea4b59e1f094ace2c8cd536dffb87cdc39084c5afa1e6f7f37dd09") 
+package_end()
 add_requires(
     "expat",
     "zlib",
@@ -15,9 +18,9 @@ add_requires(
 local ssl_provider = get_config("ssl_provider") or "quictls"
 local ssl_external = (ssl_provider ~= "wintls")
 
--- 2. 根部显式引入对应的依赖包（消除冲突）
+-- 2. 根部显式引入对应的依赖包
 if ssl_provider == "openssl" then
-    add_requires("openssl >=3.3.0", {system = false}) 
+    add_requires("builtin-repo::openssl 4.x") 
 elseif ssl_provider == "quictls" then
     add_requires("quictls")
 elseif ssl_provider == "libressl" then
@@ -28,12 +31,14 @@ elseif ssl_provider == "wintls" then
 end
 
 -- 3. 配置 libssh2 依赖
--- 如果是 macOS 且使用系统 TLS 模式，则 libssh2 使用 securetransport 后端
--- 否则（包括 Windows/MinGW 的所有模式），libssh2 使用 openssl 后端（将自动绑定到上面声明的具体包）
 if is_plat("macosx", "iphoneos") and not ssl_external then
     add_requires("libssh2", {configs = {crypto = "securetransport"}})
 else
-    add_requires("libssh2", {configs = {crypto = "openssl"}})
+    if ssl_provider == "openssl" then
+        add_requires("libssh2", {configs = {crypto = "openssl"}, require_pack = "builtin-repo::openssl"})
+    else
+        add_requires("libssh2", {configs = {crypto = "openssl"}})
+    end
 end
 
 if get_config("unit") then
