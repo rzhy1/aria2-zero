@@ -53,19 +53,64 @@ jobs:
         run: |
           # 重新配置并执行编译
           xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} -c -y
-          Write-Host "========== 1 =========="
-          xrepo list
-          Write-Host "========== 2 =========="
-          where.exe openssl
-          Get-Command openssl -ErrorAction SilentlyContinue | Format-List *
-          Write-Host "========== 3 =========="
-          $openssl = (Get-Command openssl -ErrorAction SilentlyContinue)
-          if ($openssl) {
-              Write-Host "OpenSSL command:"
-              & $openssl.Source version -a
-          }
-          Write-Host "========== 4 =========="
+          # =========================================================================
+          # [升级版深度诊断系统]
+          # 将对当前构建环境、二进制库、头文件和链接器进行全方位的排查，并在日志中输出
+          # =========================================================================
+          Write-Host "================== [ 诊断阶段 1: 检查 Xmake 依赖包物理路径 ] =================="
           xmake require --info openssl3
+          xmake require --info libssh2
+
+          Write-Host "================== [ 诊断阶段 2: 查找并解析 opensslv.h 头文件 ] =================="
+          $opensslvHeaders = Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse -Filter "opensslv.h" -ErrorAction SilentlyContinue
+          if ($opensslvHeaders) {
+              foreach ($header in $opensslvHeaders) {
+                  Write-Host "找到头文件: $($header.FullName)"
+                  Get-Content $header.FullName | Select-String "OPENSSL_VERSION_TEXT", "OPENSSL_VERSION_STR", "OPENSSL_VERSION_MAJOR"
+              }
+          } else {
+              Write-Host "未在工作区找到 opensslv.h"
+          }
+
+          Write-Host "================== [ 诊断阶段 3: 提取 libcrypto.lib 二进制硬编码版本号 ] =================="
+          $libcryptoLibs = Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse -Filter "libcrypto.lib" -ErrorAction SilentlyContinue
+          if ($libcryptoLibs) {
+              foreach ($lib in $libcryptoLibs) {
+                  Write-Host "找到静态库: $($lib.FullName)"
+                  # 扫描二进制文件，提取硬编码的 OpenSSL 版本文本 (例如 'OpenSSL 3.6.2' 或 'OpenSSL 3.6.0b')
+                  $versionMatch = Select-String -Path $lib.FullName -Pattern "OpenSSL\s+3\.[0-9a-zA-Z\.\-]+" -AllMatches -ErrorAction SilentlyContinue
+                  if ($versionMatch) {
+                      $versionMatch.Matches | ForEach-Object { Write-Host "  -> 二进制内嵌版本字符串: $($_.Value)" }
+                  } else {
+                      Write-Host "  -> 未能在二进制中找到标准的 OpenSSL 版本特征串"
+                  }
+              }
+          } else {
+              Write-Host "未在工作区找到 libcrypto.lib"
+          }
+
+          Write-Host "================== [ 诊断阶段 4: 提取 libssh2.lib 二进制内嵌符号 ] =================="
+          $libssh2Libs = Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse -Filter "libssh2.lib" -ErrorAction SilentlyContinue
+          if ($libssh2Libs) {
+              foreach ($lib in $libssh2Libs) {
+                  Write-Host "找到 libssh2 静态库: $($lib.FullName)"
+                  $versionMatch = Select-String -Path $lib.FullName -Pattern "OpenSSL\s+3\.[0-9a-zA-Z\.\-]+" -AllMatches -ErrorAction SilentlyContinue
+                  if ($versionMatch) {
+                      $versionMatch.Matches | ForEach-Object { Write-Host "  -> 内嵌 OpenSSL 关联版本: $($_.Value)" }
+                  } else {
+                      Write-Host "  -> 此 libssh2 库中未检测到内嵌的 OpenSSL 版本特征串"
+                  }
+              }
+          } else {
+              Write-Host "未在工作区找到 libssh2.lib"
+          }
+
+          Write-Host "================== [ 诊断阶段 5: 检查 MSVC 链接器环境变量污染 ] =================="
+          Write-Host "LIB 环境变量 (链接器库文件搜索目录):"
+          Write-Host "$env:LIB"
+          Write-Host "PATH 环境变量 (系统工具搜索目录):"
+          Write-Host "$env:PATH"
+          # =========================================================================
 
           
           xmake -j4 -y
