@@ -1,3 +1,5 @@
+name: Build aria2c with multiple SSL backends
+
 on:
   workflow_dispatch:
   push:
@@ -9,30 +11,31 @@ on:
   release:
     types:
       - released
-  schedule:
-    - cron: "0 0 * * *"
-    
+
 jobs:
-  build-aria2c_windows:
-    runs-on: windows-2025-vs2026
+  # ==========================================
+  # 阶段一：并行编译任务
+  # ==========================================
+  build-aria2c-windows:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        # 并行矩阵：启动 4 个独立的 VM 同时编译
+        ssl: [openssl, quictls, libressl, wintls]
     env:
       XMAKE_GLOBALDIR: ${{ github.workspace }}\.xmake
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Disable Windows Defender
         shell: pwsh
         run: |
           Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true
-          Write-Host "已关闭 Windows Defender！"
+          Write-Host "已关闭 Windows Defender 功能！"
 
-      - name: Clear xmake cache
-        shell: cmd
-        run: |
-          if exist "%LOCALAPPDATA%\.xmake" rmdir /s /q "%LOCALAPPDATA%\.xmake"
-          if exist ".xmake" rmdir /s /q ".xmake"
-      #- name: Setup MSVC
-      #  uses: microsoft/setup-msbuild@v3
-      - name: Modify files
+      - name: Modify source files
         shell: pwsh
         run: |
           $filePath1 = "$env:GITHUB_WORKSPACE\src\parser\OptionHandlerFactory.cc"
@@ -41,32 +44,73 @@ jobs:
           (Get-Content -Path $filePath1) -replace 'PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1M", 1_m, 1_g', 'PREF_PIECE_LENGTH, TEXT_PIECE_LENGTH, "1K", 1_k, 1_g' | Set-Content -Path $filePath1
           (Get-Content -Path $filePath2) -replace 'local PROJECT_VERSION = os.getenv\("VERSION"\) or "1.37.0-development"', 'local PROJECT_VERSION = "1.37.0"' | Set-Content -Path $filePath2
       
-      - name: xmake
+      - name: Setup xmake
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
-      - name: build x64
+          
+      - name: Compile Windows version (${{ matrix.ssl }})
         shell: pwsh
         run: |
-          xmake g --clean
-          xmake config -p windows -a x64 -m release --ssl_external=y --use_quictls=y -c -y
+          # 配置并编译当前矩阵指定的版本
+          xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} -c -y
           xmake -j4 -y
-          Get-ChildItem -Recurse -Filter aria2c.exe | ForEach-Object {
-             $newPath = Join-Path $_.DirectoryName "aria2c0.exe"
-             Move-Item $_.FullName $newPath -Force
+          
+          # 创建独立的暂存文件夹以供打包
+          New-Item -ItemType Directory -Force -Path "staging"
+          
+          $targetExe = Get-ChildItem -Recurse -Filter "aria2c.exe" | Select-Object -First 1
+          if ($targetExe) {
+              $newName = "aria2c0-${{ matrix.ssl }}.exe"
+              Move-Item -Path $targetExe.FullName -Destination "staging\$newName" -Force
+              Write-Host "成功生成并重命名: staging\$newName"
+          } else {
+              Write-Error "错误：未找到生成的 aria2c.exe"
+              exit 1
           }
 
-      - uses: actions/upload-artifact@v7
+      # 将当前版本的 exe 作为临时 Artifact 上传 (保留1天)
+      - name: Upload temporary artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: aria2c-windows-${{ github.run_id }}
-          path: build\**\aria2c0.exe
-          if-no-files-found: error
+          name: aria2c-bin-${{ matrix.ssl }}
+          path: staging\aria2c0-${{ matrix.ssl }}.exe
           retention-days: 1
 
-      - name: Create Release
+  # ==========================================
+  # 阶段二：合并并上传任务 (在阶段一全部完成后执行)
+  # ==========================================
+  upload-release:
+    needs: build-aria2c-windows
+    runs-on: ubuntu-latest
+    steps:
+      # 下载阶段一上传的所有临时二进制文件，并合并到 `out` 目录下
+      - name: Download all temporary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true # v4 的新特性：直接将所有不同 Artifact 内的文件合并到同一层目录中
+
+      # 检查文件是否合并成功 (可选，用于在日志中确认)
+      - name: Verify downloaded files
+        run: |
+          ls -la out/
+
+      # 合并为一个包，作为 Artifacts 统一上传到 Actions 页面
+      - name: Upload consolidated Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aria2c-windows-all
+          path: out/aria2c0-*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+      # 合并为一个步骤，将 4 个文件一同推送到 Release
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         uses: ncipollo/release-action@v1
         with:
           tag: aria2c-1.37.0
           allowUpdates: true
-          artifacts:  build\**\aria2c0.exe
+          artifacts: out/aria2c0-*.exe
           token: ${{ secrets.GITHUB_TOKEN }}
