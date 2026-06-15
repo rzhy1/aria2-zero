@@ -187,7 +187,7 @@ target("aria2")
     add_files(
         "src/poll/select/*.cc",
         "src/parser/xml/expat/*.cc",
-        "src/protocol/sftp/*.cc",
+        -- "src/protocol/sftp/*.cc",
         "src/util/uri_split.c",
         "compat/gai_strerror.c",
         "compat/a2io.cc"
