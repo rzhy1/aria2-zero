@@ -21,7 +21,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 并行矩阵：启动 4 个独立的 VM 同时编译
         ssl: [openssl, quictls, libressl, wintls]
     env:
       XMAKE_GLOBALDIR: ${{ github.workspace }}\.xmake
@@ -52,7 +51,7 @@ jobs:
       - name: Compile Windows version (${{ matrix.ssl }})
         shell: pwsh
         run: |
-          # 配置并编译当前矩阵指定的版本
+          # 重新配置并执行编译
           xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} -c -y
           xmake -j4 -y
           
@@ -69,7 +68,7 @@ jobs:
               exit 1
           }
 
-      # 将当前版本的 exe 作为临时 Artifact 上传 (保留1天)
+      # 只有当前编译成功，才会上传临时二进制 (保留 1 天)
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v4
         with:
@@ -78,26 +77,36 @@ jobs:
           retention-days: 1
 
   # ==========================================
-  # 阶段二：合并并上传任务 (在阶段一全部完成后执行)
+  # 阶段二：合并并上传任务（独立运行：即使部分平台失败也继续执行）
   # ==========================================
   upload-release:
     needs: build-aria2c-windows
+    if: always() && !cancelled()  # 确保哪怕 build-aria2c-windows 部分报错也始终执行此步骤
     runs-on: ubuntu-latest
     steps:
-      # 下载阶段一上传的所有临时二进制文件，并合并到 `out` 目录下
+      # 安全地下载当前工作流所有已成功上传的临时二进制
       - name: Download all temporary artifacts
         uses: actions/download-artifact@v4
         with:
           path: out
-          merge-multiple: true # v4 的新特性：直接将所有不同 Artifact 内的文件合并到同一层目录中
+          merge-multiple: true # 将各平台分散的二进制安全汇聚
 
-      # 检查文件是否合并成功 (可选，用于在日志中确认)
-      - name: Verify downloaded files
+      # 检测是否有成功编译出的二进制文件
+      - name: Check if there are any binaries to release
+        id: check_files
         run: |
-          ls -la out/
+          if ls out/aria2c0-*.exe 1> /dev/null 2>&1; then
+            echo "has_files=true" >> $GITHUB_OUTPUT
+            echo "成功找到以下生成的构建版本："
+            ls -la out/aria2c0-*.exe
+          else
+            echo "has_files=false" >> $GITHUB_OUTPUT
+            echo "未探测到任何成功编译的二进制产物。"
+          fi
 
-      # 合并为一个包，作为 Artifacts 统一上传到 Actions 页面
+      # 仅在有可用文件时上传打包
       - name: Upload consolidated Artifact
+        if: steps.check_files.outputs.has_files == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: aria2c-windows-all
@@ -105,9 +114,11 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      # 合并为一个步骤，将 4 个文件一同推送到 Release
+      # 仅在有可用文件时上传至 Release
       - name: Upload to GitHub Release
-        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        if: |
+          (github.event_name == 'release' || github.event_name == 'workflow_dispatch') &&
+          steps.check_files.outputs.has_files == 'true'
         uses: ncipollo/release-action@v1
         with:
           tag: aria2c-1.37.0
