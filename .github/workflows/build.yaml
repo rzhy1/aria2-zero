@@ -21,12 +21,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ssl: [openssl, quictls, libressl, wintls]
+        ssl: [wintls, libressl, quictls, openssl]
     env:
       XMAKE_GLOBALDIR: ${{ github.workspace }}\.xmake
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Disable Windows Defender
         shell: pwsh
@@ -70,7 +70,7 @@ jobs:
 
       # 只有当前编译成功，才会上传临时二进制 (保留 1 天)
       - name: Upload temporary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aria2c-bin-${{ matrix.ssl }}
           path: staging\aria2c0-${{ matrix.ssl }}.exe
@@ -86,7 +86,7 @@ jobs:
     steps:
       # 安全地下载当前工作流所有已成功上传的临时二进制
       - name: Download all temporary artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: out
           merge-multiple: true # 将各平台分散的二进制安全汇聚
@@ -107,7 +107,7 @@ jobs:
       # 仅在有可用文件时上传打包
       - name: Upload consolidated Artifact
         if: steps.check_files.outputs.has_files == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aria2c-windows-all
           path: out/aria2c0-*.exe
