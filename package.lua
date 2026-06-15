@@ -1,4 +1,4 @@
-set_policy("package.install_only", false) -- 启用免编译策略，节省时间
+set_policy("package.install_only", true) 
 
 add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
 
@@ -17,8 +17,7 @@ local ssl_external = (ssl_provider ~= "wintls")
 
 -- 2. 根部显式引入对应的依赖包
 if ssl_provider == "openssl" then
-    -- 强制使用有 100% 预编译二进制支持的 3.0.x LTS 版本，确保 2 秒内直接解压安装
-    add_requires("builtin-repo::openssl3 3.0.x") 
+    add_requires("openssl") 
 elseif ssl_provider == "quictls" then
     add_requires("quictls")
 elseif ssl_provider == "libressl" then
