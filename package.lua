@@ -17,7 +17,7 @@ local ssl_external = (ssl_provider ~= "wintls")
 
 -- 2. 根部显式引入对应的依赖包（消除冲突）
 if ssl_provider == "openssl" then
-    add_requires("openssl")
+    add_requires("openssl 4.x")
 elseif ssl_provider == "quictls" then
     add_requires("quictls")
 elseif ssl_provider == "libressl" then
