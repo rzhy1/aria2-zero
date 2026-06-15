@@ -34,6 +34,23 @@ jobs:
           Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true
           Write-Host "已关闭 Windows Defender 功能！"
 
+      - name: Clean up system OpenSSL to prevent linker pollution
+        shell: pwsh
+        run: |
+          if (Test-Path "C:\Program Files\OpenSSL") {
+              Rename-Item "C:\Program Files\OpenSSL" "C:\Program Files\OpenSSL_Backup" -Force
+              Write-Host "已成功重命名 C:\Program Files\OpenSSL"
+          }
+          if (Test-Path "C:\Program Files\OpenSSL-Win64") {
+              Rename-Item "C:\Program Files\OpenSSL-Win64" "C:\Program Files\OpenSSL-Win64_Backup" -Force
+              Write-Host "已成功重命名 C:\Program Files\OpenSSL-Win64"
+          }
+          if (Test-Path "C:\vcpkg\installed\x64-windows\lib\libcrypto.lib") {
+              Remove-Item "C:\vcpkg\installed\x64-windows\lib\libcrypto.lib" -Force
+              Remove-Item "C:\vcpkg\installed\x64-windows\lib\libssl.lib" -Force
+              Write-Host "已清理 vcpkg 中的 OpenSSL 库干扰"
+          }
+          
       - name: Modify source files
         shell: pwsh
         run: |
@@ -52,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           # 重新配置并执行编译
-          xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} --vs_runtime=MT --kind=static -c -y
+          xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} -c -y
           xmake -j4 -y
           
           # 创建独立的暂存文件夹以供打包
