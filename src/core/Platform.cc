@@ -130,10 +130,6 @@ bool Platform::setUp()
 #  if OPENSSL_VERSION_NUMBER >= 0x30000000L
   // RC4 is in the legacy provider.
   legacy_provider_ = OSSL_PROVIDER_load(nullptr, "legacy");
-  if (!legacy_provider_) {
-    // 将原本致命的 throw 逻辑修改为日志警告，防止静态编译单文件因找不到外部 legacy.dll 启动崩溃
-    A2_LOG_WARN("OSSL_PROVIDER_load 'legacy' failed. Legacy ciphers (like RC4) will be unavailable.");
-  }
 
   default_provider_ = OSSL_PROVIDER_load(nullptr, "default");
   if (!default_provider_) {
