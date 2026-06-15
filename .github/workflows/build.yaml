@@ -117,7 +117,7 @@ jobs:
       # 仅在有可用文件时上传至 Release
       - name: Upload to GitHub Release
         if: |
-          (github.event_name == 'release' || github.event_name == 'workflow_dispatch') &&
+          github.event_name != 'pull_request' && 
           steps.check_files.outputs.has_files == 'true'
         uses: ncipollo/release-action@v1
         with:
