@@ -1,9 +1,7 @@
 set_policy("package.install_only", true)
 
 add_repositories("zeromake https://github.com/rzhy1/xrepo.git")
-package("openssl")
-    add_urls("https://github.com/openssl/openssl/releases/download/openssl-4.0.1/openssl-4.0.1.tar.gz")
-    add_versions("4.0.1", "2db3f3a0d6ea4b59e1f094ace2c8cd536dffb87cdc39084c5afa1e6f7f37dd09") 
+ 
 package_end()
 add_requires(
     "expat",
@@ -20,7 +18,7 @@ local ssl_external = (ssl_provider ~= "wintls")
 
 -- 2. 根部显式引入对应的依赖包
 if ssl_provider == "openssl" then
-    add_requires("builtin-repo::openssl 4.x") 
+    add_requires("builtin-repo::openssl 3.x") 
 elseif ssl_provider == "quictls" then
     add_requires("quictls")
 elseif ssl_provider == "libressl" then
