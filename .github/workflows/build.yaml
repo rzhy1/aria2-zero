@@ -34,12 +34,10 @@ jobs:
           Set-MpPreference -DisableRealtimeMonitoring $true -DisableIOAVProtection $true
           Write-Host "已关闭 Windows Defender 功能！"
 
-      - name: Fast scan and clean up all hidden system libcrypto.lib on VM
+      - name: Instantly clean up known system OpenSSL locations
         shell: pwsh
         run: |
-          $workspace = "$env:GITHUB_WORKSPACE"
-          
-          # 1. 优先执行：已知最常见的 8 个虚拟机预装 OpenSSL 路径的秒级排查 (耗时 0.01 秒)
+          # 罗列虚拟机中所有可能预装系统级 OpenSSL 的物理路径
           $knownPaths = @(
               "C:\Program Files\OpenSSL\lib\libcrypto.lib",
               "C:\Program Files\OpenSSL\lib\libssl.lib",
@@ -48,50 +46,32 @@ jobs:
               "C:\vcpkg\installed\x64-windows\lib\libcrypto.lib",
               "C:\vcpkg\installed\x64-windows\lib\libssl.lib",
               "C:\msys64\mingw64\lib\libcrypto.a",
-              "C:\msys64\mingw64\lib\libssl.a"
+              "C:\msys64\mingw64\lib\libssl.a",
+              "C:\msys64\mingw64\lib\libcrypto.dll.a",
+              "C:\msys64\mingw64\lib\libssl.dll.a"
           )
           
-          $systemLibs = [System.Collections.Generic.List[string]]::new()
+          Write-Host "开始对已知系统 OpenSSL 路径进行精准屏蔽（耗时 < 0.1 秒）..."
+          
+          $foundCount = 0
           foreach ($path in $knownPaths) {
               if (Test-Path $path) {
-                  $systemLibs.Add($path)
-              }
-          }
-          
-          # 2. 辅助执行：调用 Windows 原生 C++ 底层优化的 cmd.exe /c dir 进行全盘高速补充检索
-          Write-Host "正在执行系统盘 C 原生高速检索（排除工作空间）..."
-          $cmdOutput = cmd.exe /c "dir C:\libcrypto.lib C:\libssl.lib /s /b 2>nul"
-          if ($cmdOutput) {
-              # 将 cmd 输出的字符串按换行符拆分，并去除多余的首尾空格
-              $foundFiles = $cmdOutput -split "`n" | ForEach-Object { $_.Trim() }
-              foreach ($file in $foundFiles) {
-                  if ($file -and (Test-Path $file) -and ($file -notlike "*$workspace*")) {
-                      if (-not $systemLibs.Contains($file)) {
-                          $systemLibs.Add($file)
-                      }
-                  }
-              }
-          }
-          
-          # 3. 汇总打印并一键屏蔽
-          if ($systemLibs.Count -gt 0) {
-              Write-Host "================ [ 发现隐藏的系统级库 ] ================"
-              foreach ($lib in $systemLibs) {
-                  Write-Host "隐藏路径: $lib"
-              }
-              
-              Write-Host "================ [ 开始执行物理重命名 ] ================"
-              foreach ($lib in $systemLibs) {
+                  $foundCount++
+                  Write-Host "检测到冲突系统库: $path"
                   try {
-                      # 重命名文件，将其物理屏蔽
-                      Rename-Item -Path $lib -NewName ((Split-Path $lib -Leaf) + ".bak") -Force -ErrorAction SilentlyContinue
-                      Write-Host "屏蔽成功: $lib -> $lib.bak"
+                      # 重命名为 .bak 以实现物理屏蔽
+                      Rename-Item -Path $path -NewName ((Split-Path $path -Leaf) + ".bak") -Force -ErrorAction SilentlyContinue
+                      Write-Host "已屏蔽: $path -> $path.bak"
                   } catch {
-                      Write-Host "屏蔽失败 $lib : $_"
+                      Write-Host "屏蔽失败 $path : $_"
                   }
               }
+          }
+          
+          if ($foundCount -eq 0) {
+              Write-Host "未在已知系统目录中检测到任何冲突静态库。"
           } else {
-              Write-Host "未在系统盘中找到任何冲突的静态库文件。"
+              Write-Host "已成功屏蔽 $foundCount 个系统级冲突库。"
           }
           
       - name: Modify source files
