@@ -65,39 +65,6 @@ jobs:
               exit 1
           }
 
-      - name: Verify OpenSSL + Build Output Consistency
-        if: always()
-        shell: pwsh
-        run: |
-          Write-Host "================== [1] OpenSSL runtime version =================="
-          where.exe openssl 2>$null
-          openssl version -a 2>$null
-
-          Write-Host "================== [2] xmake build cache info =================="
-          xmake show -l 2>$null
-          xmake show -v 2>$null
-
-          Write-Host "================== [3] Clean check: build output location =================="
-          Get-ChildItem -Recurse -Filter "aria2c.exe" | Select-Object FullName
-
-          Write-Host "================== [4] Check FeatureConfig source in build =================="
-          Get-ChildItem -Recurse -Filter "FeatureConfig.*" | ForEach-Object {
-            Write-Host $_.FullName
-          }
-
-          Write-Host "================== [5] Search OpenSSL version string in build artifacts =================="
-          Get-ChildItem -Recurse -Filter "*.exe" | ForEach-Object {
-            Write-Host "---- $_.FullName ----"
-            strings $_.FullName 2>$null | Select-String "OpenSSL"
-          }
-
-          Write-Host "================== [6] Check if old ABI parser still exists =================="
-          Get-ChildItem -Recurse -Include *.cc,*.cpp,*.h | `
-            Select-String "version_number >>|OPENSSL_VERSION_NUMBER|SSLeay_version"
-
-          Write-Host "================== [7] xmake clean state check =================="
-          xmake clean -a
-          Write-Host "Clean done"
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v7
         with:
@@ -106,21 +73,19 @@ jobs:
           retention-days: 1
 
   # ==========================================
-  # 阶段二：合并并上传任务（独立运行：即使部分平台失败也继续执行）
+  # 阶段二：合并并上传任务
   # ==========================================
   upload-release:
     needs: build-aria2c-windows
-    if: always() && !cancelled()  # 确保哪怕 build-aria2c-windows 部分报错也始终执行此步骤
+    if: always() && !cancelled()  
     runs-on: ubuntu-latest
     steps:
-      # 安全地下载当前工作流所有已成功上传的临时二进制
       - name: Download all temporary artifacts
         uses: actions/download-artifact@v8
         with:
           path: out
-          merge-multiple: true # 将各平台分散的二进制安全汇聚
+          merge-multiple: true
 
-      # 检测是否有成功编译出的二进制文件
       - name: Check if there are any binaries to release
         id: check_files
         run: |
