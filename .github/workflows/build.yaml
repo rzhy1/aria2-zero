@@ -53,6 +53,17 @@ jobs:
         run: |
           xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} -c -y
           xmake -j4 -y
+ 
+          New-Item -ItemType Directory -Force -Path "staging"
+          $targetExe = Get-ChildItem -Recurse -Filter "aria2c.exe" | Select-Object -First 1
+          if ($targetExe) {
+              $newName = "aria2c0-${{ matrix.ssl }}.exe"
+              Move-Item -Path $targetExe.FullName -Destination "staging\$newName" -Force
+              Write-Host "成功生成并重命名: staging\$newName"
+          } else {
+              Write-Error "错误：未找到生成的 aria2c.exe"
+              exit 1
+          }
 
       - name: Upload temporary artifact
         uses: actions/upload-artifact@v7
