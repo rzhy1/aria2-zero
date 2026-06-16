@@ -232,6 +232,10 @@ std::string usedLibs()
 #  else
   const char lib_name[] = "OpenSSL";
 #  endif
+
+#  if defined(OPENSSL_VERSION_STR)
+  res += fmt("%s/%s", lib_name, OPENSSL_VERSION_STR);
+#  else
   const long version_number = OPENSSL_VERSION_NUMBER;
   res += fmt("%s/%ld.%ld.%ld",
              lib_name,
@@ -241,6 +245,7 @@ std::string usedLibs()
   if ((version_number >> 4) & 0xff) {
     res += 'a' + ((version_number >> 4) & 0xff) - 1;
   }
+#  endif
   res += " ";
 #endif
 #ifdef HAVE_LIBNETTLE
