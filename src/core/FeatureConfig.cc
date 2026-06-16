@@ -235,7 +235,12 @@ std::string usedLibs()
 #  if defined(OPENSSL_VERSION_STR) && !defined(LIBRESSL_VERSION_NUMBER)
   res += fmt("%s/%s", lib_name, OPENSSL_VERSION_STR);
 #  else
-  const long version_number = OPENSSL_VERSION_NUMBER;
+  const long version_number =
+#    if defined(LIBRESSL_VERSION_NUMBER)
+      LIBRESSL_VERSION_NUMBER;
+#    else
+      OPENSSL_VERSION_NUMBER;
+#    endif
   res += fmt("%s/%ld.%ld.%ld",
              lib_name,
              version_number >> 28,
