@@ -225,22 +225,24 @@ std::string usedLibs()
   res += "GnuTLS/" GNUTLS_VERSION " ";
 #endif // HAVE_LIBGNUTLS
 #ifdef HAVE_OPENSSL
-#  ifdef LIBRESSL_VERSION_NUMBER
+#  if defined(LIBRESSL_VERSION_NUMBER)
   const char lib_name[] = "LibreSSL";
-  const long version_number = LIBRESSL_VERSION_NUMBER;
-#  elif defined(OPENSSL_VERSION_NUMBER)
+#  elif defined(OPENSSL_IS_QUIC)
+  const char lib_name[] = "quictls";
+#  else
   const char lib_name[] = "OpenSSL";
-  const long version_number = OPENSSL_VERSION_NUMBER;
 #  endif
-  #ifdef HAVE_OPENSSL
-  #  if defined(LIBRESSL_VERSION_NUMBER)
-  res += fmt("LibreSSL/%s", OpenSSL_version(OPENSSL_VERSION));
-  #  else
-  res += fmt("OpenSSL/%s", OpenSSL_version(OPENSSL_VERSION));
-  #  endif
-    res += " ";
-  #endif
-#endif // HAVE_OPENSSL
+  const long version_number = OPENSSL_VERSION_NUMBER;
+  res += fmt("%s/%ld.%ld.%ld",
+             lib_name,
+             version_number >> 28,
+             (version_number >> 20) & 0xff,
+             (version_number >> 12) & 0xff);
+  if ((version_number >> 4) & 0xff) {
+    res += 'a' + ((version_number >> 4) & 0xff) - 1;
+  }
+  res += " ";
+#endif
 #ifdef HAVE_LIBNETTLE
   // No library version in header files.
   res += "nettle ";
