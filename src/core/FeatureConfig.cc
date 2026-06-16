@@ -232,12 +232,14 @@ std::string usedLibs()
   const char lib_name[] = "OpenSSL";
   const long version_number = OPENSSL_VERSION_NUMBER;
 #  endif
-  res += fmt("%s/%ld.%ld.%ld", lib_name, version_number >> 28,
-             (version_number >> 20) & 0xff, (version_number >> 12) & 0xff);
-  if ((version_number >> 4) & 0xff) {
-    res += 'a' + ((version_number >> 4) & 0xff) - 1;
-  }
-  res += " ";
+  #ifdef HAVE_OPENSSL
+  #  if defined(LIBRESSL_VERSION_NUMBER)
+  res += fmt("LibreSSL/%s", OpenSSL_version(OPENSSL_VERSION));
+  #  else
+  res += fmt("OpenSSL/%s", OpenSSL_version(OPENSSL_VERSION));
+  #  endif
+    res += " ";
+  #endif
 #endif // HAVE_OPENSSL
 #ifdef HAVE_LIBNETTLE
   // No library version in header files.
