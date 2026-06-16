@@ -66,6 +66,7 @@ jobs:
           }
 
       - name: Verify OpenSSL + Build Output Consistency
+        if: always()
         shell: pwsh
         run: |
           Write-Host "================== [1] OpenSSL runtime version =================="
