@@ -109,6 +109,7 @@ jobs:
         shell: pwsh
         run: |
           xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} -c -y
+          xmake clean -a
           xmake -j4 -y
           # ==========================================================
           # 深度诊断：在编译成功后，所有的依赖包物理安装完毕后执行
