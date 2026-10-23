@@ -1,8 +1,6 @@
 includes("@builtin/check")
 includes("@builtin/xpack")
 add_rules("mode.debug", "mode.release")
-set_policy("build.optimization.lto", true)
-
 option("ssl_provider")
     set_default("quictls")
     set_showmenu(true)
