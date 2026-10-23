@@ -19,7 +19,7 @@ jobs:
   # 阶段一：并行编译任务
   # ==========================================
   build-aria2c-windows:
-    runs-on: windows-2022
+    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
