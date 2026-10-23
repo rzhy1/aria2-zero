@@ -53,7 +53,7 @@ jobs:
       - name: Compile Windows version (${{ matrix.ssl }})
         shell: pwsh
         run: |
-          xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }} --runtimes=MT -c -y
+          xmake config -p windows -a x64 -m release --ssl_provider=${{ matrix.ssl }}  -c -y
           xmake -j4 -y
  
           New-Item -ItemType Directory -Force -Path "staging"
